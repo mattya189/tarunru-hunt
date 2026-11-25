@@ -1,5 +1,6 @@
 import type { FieldData, MonsterData, WeaponData } from './config'
 import type { Battle } from './battle'
+import type { BattleMusic } from './battle-music'
 import { clamp } from './math'
 import { listScores, rankingTime, saveScore, type RankingRun } from './rankings'
 
@@ -30,7 +31,7 @@ export class Interface {
   private current: Screen | null = null
   private cache = new Map<HTMLElement,string>()
 
-  constructor(private data: MonsterData, private field: FieldData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private roster: readonly MonsterData[], private choose: (id:string) => void) {
+  constructor(private data: MonsterData, private field: FieldData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private roster: readonly MonsterData[], private choose: (id:string) => void, private music:BattleMusic) {
     this.bossName.textContent=data.name
     document.documentElement.classList.toggle('coarse',coarse)
     this.panel.addEventListener('click',e => {
@@ -41,6 +42,10 @@ export class Interface {
       if (button.dataset.quality) {
         this.onQuality(button.dataset.quality as Quality)
         for (const el of this.panel.querySelectorAll<HTMLButtonElement>('[data-quality]')) el.setAttribute('aria-pressed',String(el===button))
+      }
+      if (button.dataset.bgm) {
+        this.music.setEnabled(button.dataset.bgm==='on')
+        for(const el of this.panel.querySelectorAll<HTMLButtonElement>('[data-bgm]')) el.setAttribute('aria-pressed',String(el===button))
       }
     })
   }
@@ -57,7 +62,8 @@ export class Interface {
     this.touch.hidden=!!screen||!this.coarse
     if (!screen) return
     const button = (cmd: Command, name: string, primary=false) => `<button class="${primary?'primary':'secondary'}" data-cmd="${cmd}">${name}${primary?'<span aria-hidden="true">→</span>':''}</button>`
-    const settings = `<div class="settings"><span>画質</span><div role="group" aria-label="画質">${(Object.keys(qualityLabels) as Quality[]).map(q=>`<button data-quality="${q}" aria-pressed="${q===quality}">${qualityLabels[q]}</button>`).join('')}</div></div>`
+    const settings = `<div class="options"><div class="settings"><span>画質</span><div role="group" aria-label="画質">${(Object.keys(qualityLabels) as Quality[]).map(q=>`<button data-quality="${q}" aria-pressed="${q===quality}">${qualityLabels[q]}</button>`).join('')}</div></div>
+      <div class="settings bgm-settings"><span>戦闘BGM</span><div role="group" aria-label="戦闘BGM"><button data-bgm="on" aria-pressed="${this.music.enabled}">あり</button><button data-bgm="off" aria-pressed="${!this.music.enabled}">なし</button></div></div></div>`
     if (screen==='loading') this.panel.innerHTML='<div class="eyebrow">SHIOSAI HUNT</div><h1>潮鳴りの狩場</h1><p role="status">闘技場を読み込み中…</p><div class="loading-line"></div>'
     if (screen==='title') this.panel.innerHTML=`
       <div class="eyebrow">3D モンスター討伐</div><h1>潮鳴りの<br><em>狩場</em></h1>

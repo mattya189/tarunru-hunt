@@ -1,5 +1,6 @@
 import { ACESFilmicToneMapping, PCFShadowMap, Scene, SRGBColorSpace, Vector3, WebGLRenderer } from 'three'
 import { Battle } from './battle'
+import { BattleMusic } from './battle-music'
 import { HuntCamera } from './camera'
 import { ContactShadow } from './contact'
 import { coast, greatsword, tidebeast, type MonsterData } from './config'
@@ -21,6 +22,7 @@ import './style.css'
 const roster=[tidebeast,sabottenanbon,sabottenanbonOvergrowth,revotenshi]
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
+const music=new BattleMusic()
 const ratios={low:.78,medium:1.16,high:1.78}
 let quality: Quality=input.coarse?'low':'high'
 try {
@@ -45,7 +47,7 @@ let hunterShadow: ContactShadow, bossShadow: ContactShadow
 let dirty=true, frameCount=0
 let latest=performance.now(), titleTime=0, accumulator=0, uiTimer=0
 const step=1/60
-const ui=new Interface(tidebeast,coast,greatsword,input.coarse,command,applyQuality,roster,id=>void chooseMonster(id))
+const ui=new Interface(tidebeast,coast,greatsword,input.coarse,command,applyQuality,roster,id=>void chooseMonster(id),music)
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')
 const lockPoint=new Vector3()
@@ -54,6 +56,8 @@ reticle.id='reticle'; reticle.hidden=true
 document.querySelector('#hud')!.append(reticle)
 
 function switchTo(next: Screen | null) {
+  if(next===null) music.resume()
+  else music.pause()
   screen=next
   input.clear(); input.enabled=next===null
   accumulator=0
@@ -102,6 +106,8 @@ async function chooseMonster(id:string) {
 }
 async function startHunt() {
   switchTo('loading')
+  // Safari requires the first play() call inside the Start/Retry tap, before the ranking request.
+  music.start()
   rankingRun=await beginRun(battle.monster.data.id).catch(()=>undefined)
   rankingResult=undefined
   battle.reset(); camera.reset(battle); switchTo(null)
@@ -161,6 +167,7 @@ function frame(now: number) {
       if(fx.hitstop>0) fx.hitstop=Math.max(0,fx.hitstop-step)
       else { battle.update(step,input,camera.yaw); input.endFrame() }
     }
+    if(battle.outcome) music.pause()
     if(battle.outcome==='victory' && rankingRun && !rankingResult) {
       rankingResult=finishRun(rankingRun).catch(()=>null)
     }
@@ -206,6 +213,7 @@ function frame(now: number) {
 
 function fail(error: unknown) {
   console.error(error)
+  music.pause()
   screen='error'; input.clear(); input.enabled=false
   ui.show('error',quality,undefined,error instanceof Error?error.message:'3Dデータを読み込めなかった。')
 }
@@ -228,6 +236,10 @@ async function init() {
     camera.reset(battle)
     applyQuality(quality)
     addEventListener('resize',resize)
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden) music.pause()
+      else if(screen===null && !battle.outcome) music.resume()
+    })
     window.visualViewport?.addEventListener('resize',resize)
     canvas.addEventListener('webglcontextlost',event=>{
       event.preventDefault()
