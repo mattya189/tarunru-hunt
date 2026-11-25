@@ -28,6 +28,7 @@ export class RevotenshiBattle extends Battle {
   private landed=false
   private summoned=false
   private barrier=false
+  private barrierHealTime=0
   private barrierBroken=false
   private tornadoAge=0
   private tornadoActive=false
@@ -59,6 +60,7 @@ export class RevotenshiBattle extends Battle {
     this.readyAt={beam:0,spin:0,tornado:3}
     this.activeAttack=undefined; this.landed=false
     this.summoned=this.barrier=this.barrierBroken=false
+    this.barrierHealTime=0
   }
 
   private clearEncounter() {
@@ -73,9 +75,18 @@ export class RevotenshiBattle extends Battle {
 
   override update(dt:number,input:Controls,yaw:number) {
     if (this.outcome) { super.update(dt,input,yaw); return }
+    const hadBarrier=this.barrier
     super.update(dt,input,yaw)
     if (this.outcome) this.clearEncounter()
     else {
+      if (hadBarrier && this.barrier) {
+        this.barrierHealTime+=dt
+        const seconds=Math.floor(this.barrierHealTime+1e-9)
+        if (seconds>0) {
+          this.bossHp=Math.min(this.monster.data.hp,this.bossHp+seconds*combat.barrierHealPerSecond)
+          this.barrierHealTime-=seconds
+        }
+      }
       this.effects.update(dt)
       for (const clone of this.clones) clone.effects.update(dt)
     }
@@ -150,7 +161,7 @@ export class RevotenshiBattle extends Battle {
     }
     if (this.barrier) {
       this.monster.animate('barrierIdle',dt)
-      this.callout=`無敵バリア · 分身体 残り${this.clones.filter(clone=>clone.hp>0).length}体`
+      this.callout=`無敵バリア・HP回復中 · 分身体 残り${this.clones.filter(clone=>clone.hp>0).length}体`
       return
     }
 

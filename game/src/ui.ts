@@ -81,7 +81,7 @@ export class Interface {
     if (screen==='quest') this.panel.innerHTML=`
       <div class="eyebrow">討伐クエスト</div><h2>${this.data.name}</h2>
       <dl><div><dt>狩場</dt><dd>${this.field.name}</dd></div><div><dt>武器</dt><dd>${this.weapon.name}</dd></div></dl>
-      <p>${this.data.id==='revotenshi'?'竜巻に当たると移動方向が5秒間逆になる。無敵バリアは分身体を2体倒すと壊れる。':'予兆を見極めてかわし、攻撃後の隙に大剣を振り込め。'}</p>
+      <p>${this.data.id==='revotenshi'?'竜巻に当たると移動方向が5秒間逆になる。無敵バリア中は本体のHPが少しずつ回復する。分身体を2体倒すとバリアが壊れる。':'予兆を見極めてかわし、攻撃後の隙に大剣を振り込め。'}</p>
       <p class="ranking-note">世界ランキングのタイムには一時停止中の時間も含まれる。</p>
       <div class="menu-actions">${button('start','狩りを始める',true)}${button('title','戻る')}</div>`
     if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`

@@ -25,7 +25,7 @@ export const revotenshi: MonsterData = {
 
 export const combat = {
   ...effects, summonHpRatio:.50, minionHpRatio:.08, minionPower:.65, ragePower:1.25,
-  beamWidth:.53, spinRadius:2.85, tornadoRadius:1.1, barrierDown:4,
+  beamWidth:.53, spinRadius:2.85, tornadoRadius:1.1, barrierDown:4, barrierHealPerSecond:3,
   beamDamage:33, spinDamage:26, tornadoDamage:19,
 }
 
