@@ -21,6 +21,7 @@ export class Battle {
   lock = false
   callout = ''
   chargeValue = 0
+  reverseMovement = 0
   outcome: 'victory' | 'failure' | null = null
   outcomeTime = 0
   playerYaw = Math.PI
@@ -84,7 +85,7 @@ export class Battle {
     this.chargeValue=this.attackCount=this.rageSequence=this.waveTime=this.milestone=0
     this.lastAttack=undefined; this.attack=undefined
     this.queued=this.charged=this.struck=this.attackLocked=this.attackHit=this.guard=false
-    this.callout=''; this.cooldowns={swipe:0,rush:1,spin:2,leap:3,special:6}
+    this.callout=''; this.reverseMovement=0; this.cooldowns={swipe:0,rush:1,spin:2,leap:3,special:6}
     this.fx.clear(); this.setPlayer('free'); this.setBoss('idle')
     this.hunter.root.rotation.y=this.playerYaw; this.hunter.pose('idle',0,0,0,0)
     this.monster.root.rotation.y=this.bossYaw; this.monster.setEnraged(false); this.monster.animate('idle',0)
@@ -103,11 +104,13 @@ export class Battle {
     this.staminaDelay=Math.max(0,this.staminaDelay-dt)
     this.recentlyStaggered=Math.max(0,this.recentlyStaggered-dt)
     if (!this.staminaDelay) this.stamina=Math.min(this.weapon.stamina,this.stamina+24*dt)
+    this.reverseMovement=Math.max(0,this.reverseMovement-dt)
     this.updatePlayer(dt,input,viewYaw)
     this.updateBoss(dt)
     this.strikeMonster()
   }
 
+  get lockTarget() { return this.m }
   get defeatDuration() { return 1.65 }
 
   private setPlayer(state: FighterState) { this.playerState=state; this.pt=0 }
@@ -128,10 +131,12 @@ export class Battle {
   }
   private updatePlayer(dt: number,input: Controls,viewYaw: number) {
     input.movement(this.move)
+    if(this.reverseMovement>0) { this.move.x*=-1; this.move.y*=-1 }
     const attack=input.take('attack'), dodge=input.take('dodge'), charge=input.take('charge'), release=input.wasReleased('charge')
     const magnitude=Math.hypot(this.move.x,this.move.y)
     const dir=this.direction.set(-Math.cos(viewYaw)*this.move.x-Math.sin(viewYaw)*this.move.y,0,Math.sin(viewYaw)*this.move.x-Math.cos(viewYaw)*this.move.y)
-    const angle = yawTo(this.p,this.m)
+    const target=this.lockTarget
+    const angle = yawTo(this.p,target)
     let pose: HunterPose='idle', phase=0
     this.guard=false
     this.chargeValue=0
@@ -173,7 +178,7 @@ export class Battle {
       const s=this.strike, duration=s.windup+s.active+s.recovery
       phase=this.pt<s.windup ? this.pt/s.windup : this.pt<s.windup+s.active ? 1+(this.pt-s.windup)/s.active : 2+clamp((this.pt-s.windup-s.active)/s.recovery,0,1)
       if (attack && this.pt > .03 && this.combo < 2 && !this.charged) this.queued=true
-      if (phase<1 && (this.lock || (flatDistance(this.p,this.m)<4.0 && Math.abs(wrap(angle-this.playerYaw))<1.1))) {
+      if (phase<1 && (this.lock || (flatDistance(this.p,target)<4.0 && Math.abs(wrap(angle-this.playerYaw))<1.1))) {
         this.playerYaw += wrap(angle-this.playerYaw)*Math.min(1,10*dt)
       }
       if (phase>.72 && phase<1.67) this.moveEntity(this.p,forward(this.playerYaw,this.delta),s.lunge*dt,.44,this.m,this.monster.data.radius)
@@ -215,23 +220,13 @@ export class Battle {
   }
   private strikeMonster() {
     const s=this.strike
-    if (this.outcome || this.playerState!=='swing' || this.struck || this.pt<s.windup || this.pt>s.windup+s.active || flatDistance(this.p,this.m)>5) return
-    let best: MonsterModel['parts'][number] | undefined
-    let bestScore=Infinity
-    for(const part of this.monster.parts) {
-      const center=part.center
-      const radius=part.config.radius*this.monster.data.scale+.18
-      const d2=Math.min(
-        pointSegmentSquared(center,this.bladeA,this.bladeB),
-        pointSegmentSquared(center,this.previousA,this.previousB),
-        pointSegmentSquared(center,this.previousB,this.bladeB),
-      )
-      const score=d2/(radius*radius) - (part.config.multiplier-1)*.32
-      if (d2 <= radius*radius && score < bestScore) { best=part; bestScore=score }
-    }
+    if (this.outcome || this.playerState!=='swing' || this.struck || this.pt<s.windup || this.pt>s.windup+s.active) return
+    if (this.strikeSecondary(s.damage*this.power)) { this.struck=true; return }
+    const best=this.findStrike(this.monster)
     if (!best) return
     this.struck=true
     const damage=Math.round(s.damage*this.power*best.config.multiplier)
+    if (!this.acceptBossDamage()) return
     this.bossHp=Math.max(0,this.bossHp-damage)
     this.poise+=damage*best.config.stagger
     if (best.config.bone===this.monster.data.rig?.leftLeg || best.config.bone===this.monster.data.rig?.rightLeg) this.legDamage+=damage*best.config.stagger
@@ -249,6 +244,27 @@ export class Battle {
     } else if (this.bossState==='approach' || this.bossState==='turn' || this.bossState==='search') {
       this.setBoss('hit')
     }
+  }
+
+  protected strikeSecondary(_damage:number) { return false }
+  protected acceptBossDamage() { return true }
+
+  protected findStrike(monster:MonsterModel) {
+    if(flatDistance(this.p,monster.root.position)>5) return
+    let best: MonsterModel['parts'][number] | undefined
+    let bestScore=Infinity
+    for(const part of monster.parts) {
+      const center=part.center
+      const radius=part.config.radius*monster.data.scale+.18
+      const d2=Math.min(
+        pointSegmentSquared(center,this.bladeA,this.bladeB),
+        pointSegmentSquared(center,this.previousA,this.previousB),
+        pointSegmentSquared(center,this.previousB,this.bladeB),
+      )
+      const score=d2/(radius*radius) - (part.config.multiplier-1)*.32
+      if (d2 <= radius*radius && score < bestScore) { best=part; bestScore=score }
+    }
+    return best
   }
 
   protected canInterruptBoss() { return true }
