@@ -1,0 +1,47 @@
+import type { MonsterData } from '../config'
+import animation from './revotenshi_animation.json'
+import effects from './effects.json'
+
+export const revotenshi: MonsterData = {
+  id: 'revotenshi', name: 'レボテンシ', model: 'models/revotenshi/revotenshi_animated.glb',
+  hp: 1500, speed: 2.8, power: 1, scale: .94, footOffset: 1.88, yawOffset: 0, radius: .93,
+  parts: [
+    { name: '顎', bone: 'Jaw_Pivot', offset: [0,.11,.22], radius: .78, multiplier: 1.3, stagger: 1.25 },
+    { name: '胴', bone: 'world', offset: [0,-.44,-.43], radius: 1.08, multiplier: 1, stagger: 1 },
+    { name: '尾', bone: 'Tail_Pivot_1', offset: [0,-.13,-.18], radius: .62, multiplier: .84, stagger: 1.15 },
+  ],
+  ai: { wake: 23, turnSpeed: 3.8, stagger: 190, topple: 310, enabledAttacks: [] },
+  motions: {
+    idle: {clip:'Idle'}, walk: {clip:'MoveForward'}, roar: {clip:'Roar'},
+    beamPrep: {clip:'BeamWindup'}, beamFire: {clip:'BeamFire'}, beamRecover: {clip:'BeamRecover'},
+    spinPrep: {clip:'SpinWindup'}, spin: {clip:'SpinAttack'}, spinRecover: {clip:'SpinRecover'},
+    tornadoPrep: {clip:'TornadoWindup'}, tornadoRelease: {clip:'TornadoRelease'}, tornadoRecover: {clip:'TornadoRecover'},
+    summon: {clip:'Summon'}, barrierIdle: {clip:'BarrierIdle'}, barrierBreak: {clip:'BarrierBreak'},
+    enrage: {clip:'RageEnter'}, rageIdle: {clip:'RageIdle'}, hit: {clip:'HitSmall'}, stagger: {clip:'HitHeavy'},
+    fall: {clip:'Fall'}, downLoop: {clip:'DownLoop'}, getUp: {clip:'Recover'}, defeat: {clip:'Death'},
+  },
+  rage: { hpRatio:.30, speed:1.30, tempo:1, chainDelay:0 },
+}
+
+export const combat = {
+  ...effects, summonHpRatio:.50, minionHpRatio:.08, minionPower:.65, ragePower:1.25,
+  beamWidth:.53, spinRadius:2.85, tornadoRadius:1.1, barrierDown:4,
+  beamDamage:33, spinDamage:26, tornadoDamage:19,
+}
+
+export const minion: MonsterData = {
+  ...revotenshi, hp:Math.round(revotenshi.hp*combat.minionHpRatio),
+  scale:revotenshi.scale*combat.minionScale, radius:.45,
+}
+
+function eventTime(clip: keyof typeof animation.events, name: string) {
+  const cue=animation.events[clip].find(entry=>entry.event===name)
+  if(!cue) throw new Error(`Missing レボテンシ animation cue: ${clip}/${name}`)
+  return cue.time
+}
+
+export const cues = {
+  tornado:eventTime('TornadoRelease','spawn_tornado'),
+  barrier:eventTime('Summon','barrier_on'),
+  minions:eventTime('Summon','spawn_minions'),
+}

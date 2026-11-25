@@ -14,9 +14,11 @@ import { sabottenanbon, sabottenanbonOvergrowth, sabotProfiles } from './sabotte
 import { AttackRuntime, effectData } from './sabottenanbon/attack-runtime'
 import { SabotBattle } from './sabottenanbon/battle'
 import { BreathBloom } from './sabottenanbon/bloom'
+import { RevotenshiBattle } from './revotenshi/battle'
+import { minion, revotenshi } from './revotenshi/config'
 import './style.css'
 
-const roster=[tidebeast,sabottenanbon,sabottenanbonOvergrowth]
+const roster=[tidebeast,sabottenanbon,sabottenanbonOvergrowth,revotenshi]
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
 const ratios={low:.78,medium:1.16,high:1.78}
@@ -69,6 +71,11 @@ async function loadBattle(data:MonsterData) {
     const runtime=await AttackRuntime.load(scene,arena,monster,quality,profile)
     const encounter=new SabotBattle(monster,hunter,arena,fx,greatsword)
     encounter.attachRuntime(runtime)
+    next=encounter
+  } else if(data.id===revotenshi.id) {
+    const clones=await Promise.all([MonsterModel.load(minion),MonsterModel.load(minion)])
+    const encounter=new RevotenshiBattle(monster,hunter,arena,fx,greatsword)
+    encounter.attach(scene,clones)
     next=encounter
   } else next=new Battle(monster,hunter,arena,fx,greatsword)
   battles.set(data.id,next)
@@ -163,6 +170,10 @@ function frame(now: number) {
       if(battle instanceof SabotBattle) {
         lockPoint.copy(battle.monster.parts[0].center)
         lockPoint.y+=.60
+      } else if(battle instanceof RevotenshiBattle) {
+        const target=battle.lockTarget
+        if(target===battle.m) lockPoint.copy(battle.monster.parts[0].center)
+        else { lockPoint.copy(target); lockPoint.y+=.96 }
       } else { lockPoint.copy(battle.m); lockPoint.y+=battle.monster.data.scale*3.22 }
       lockPoint.project(camera.camera)
       reticle.hidden=lockPoint.z<-1||lockPoint.z>1||Math.abs(lockPoint.x)>.98||Math.abs(lockPoint.y)>.97

@@ -81,7 +81,7 @@ export class Interface {
     if (screen==='quest') this.panel.innerHTML=`
       <div class="eyebrow">討伐クエスト</div><h2>${this.data.name}</h2>
       <dl><div><dt>狩場</dt><dd>${this.field.name}</dd></div><div><dt>武器</dt><dd>${this.weapon.name}</dd></div></dl>
-      <p>予兆を見極めてかわし、攻撃後の隙に大剣を振り込め。</p>
+      <p>${this.data.id==='revotenshi'?'竜巻に当たると移動方向が5秒間逆になる。無敵バリアは分身体を2体倒すと壊れる。':'予兆を見極めてかわし、攻撃後の隙に大剣を振り込め。'}</p>
       <p class="ranking-note">世界ランキングのタイムには一時停止中の時間も含まれる。</p>
       <div class="menu-actions">${button('start','狩りを始める',true)}${button('title','戻る')}</div>`
     if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
@@ -189,8 +189,10 @@ export class Interface {
     this.gauge(this.hp,b.hp,this.weapon.hp)
     this.gauge(this.stamina,Math.floor(b.stamina),this.weapon.stamina)
     this.gauge(this.bossHp,b.bossHp,this.data.hp,true)
-    this.write(this.callout,b.callout || (lock?'ロックオン中':''))
-    this.callout.classList.toggle('warning',b.bossState==='windup'||b.bossState==='rage')
+    const notice=b.callout || (lock?'ロックオン中':'')
+    const reverse=b.reverseMovement>0 ? `移動反転 ${Math.ceil(b.reverseMovement)}秒` : ''
+    this.write(this.callout,[reverse,notice].filter(Boolean).join(' · '))
+    this.callout.classList.toggle('warning',b.bossState==='windup'||b.bossState==='rage'||b.reverseMovement>0)
     this.rage.hidden=!b.rage
     this.bossHp.classList.toggle('enraged',b.rage)
     this.charge.hidden=b.chargeValue===0

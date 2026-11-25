@@ -1,0 +1,183 @@
+{
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3,
+      "loop": true
+    },
+    {
+      "name": "MoveForward",
+      "duration": 1,
+      "loop": true
+    },
+    {
+      "name": "MoveBackward",
+      "duration": 1,
+      "loop": true
+    },
+    {
+      "name": "StrafeLeft",
+      "duration": 1,
+      "loop": true
+    },
+    {
+      "name": "StrafeRight",
+      "duration": 1,
+      "loop": true
+    },
+    {
+      "name": "Turn",
+      "duration": 0.6,
+      "loop": false
+    },
+    {
+      "name": "Roar",
+      "duration": 2,
+      "loop": false
+    },
+    {
+      "name": "BeamWindup",
+      "duration": 1.2,
+      "loop": false
+    },
+    {
+      "name": "BeamFire",
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "name": "BeamRecover",
+      "duration": 0.8,
+      "loop": false
+    },
+    {
+      "name": "SpinWindup",
+      "duration": 0.7,
+      "loop": false
+    },
+    {
+      "name": "SpinAttack",
+      "duration": 1.3,
+      "loop": false
+    },
+    {
+      "name": "SpinRecover",
+      "duration": 1,
+      "loop": false
+    },
+    {
+      "name": "TornadoWindup",
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "name": "TornadoRelease",
+      "duration": 0.6,
+      "loop": false
+    },
+    {
+      "name": "TornadoRecover",
+      "duration": 0.8,
+      "loop": false
+    },
+    {
+      "name": "Summon",
+      "duration": 4,
+      "loop": false
+    },
+    {
+      "name": "BarrierIdle",
+      "duration": 2,
+      "loop": true
+    },
+    {
+      "name": "BarrierBreak",
+      "duration": 1,
+      "loop": false
+    },
+    {
+      "name": "RageEnter",
+      "duration": 2,
+      "loop": false
+    },
+    {
+      "name": "RageIdle",
+      "duration": 1.5,
+      "loop": true
+    },
+    {
+      "name": "HitSmall",
+      "duration": 0.3,
+      "loop": false
+    },
+    {
+      "name": "HitHeavy",
+      "duration": 0.7,
+      "loop": false
+    },
+    {
+      "name": "Fall",
+      "duration": 1,
+      "loop": false
+    },
+    {
+      "name": "DownLoop",
+      "duration": 2,
+      "loop": true
+    },
+    {
+      "name": "Recover",
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "name": "Death",
+      "duration": 4,
+      "loop": false
+    },
+    {
+      "name": "DeadIdle",
+      "duration": 1,
+      "loop": true
+    }
+  ],
+  "events": {
+    "BeamFire": [
+      {
+        "time": 0,
+        "event": "beam_start"
+      },
+      {
+        "time": 1.5,
+        "event": "beam_end"
+      }
+    ],
+    "SpinAttack": [
+      {
+        "time": 0,
+        "event": "hitbox_start"
+      },
+      {
+        "time": 1.3,
+        "event": "hitbox_end"
+      }
+    ],
+    "TornadoRelease": [
+      {
+        "time": 0.3,
+        "event": "spawn_tornado"
+      }
+    ],
+    "Summon": [
+      {
+        "time": 2.4,
+        "event": "barrier_on"
+      },
+      {
+        "time": 3.2,
+        "event": "spawn_minions"
+      }
+    ]
+  },
+  "notes": "Visual node animation only; world movement, collision, effects and event dispatch are game-side. Fall offset is provisional."
+}
