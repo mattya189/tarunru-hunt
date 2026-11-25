@@ -1,10 +1,11 @@
 import type { FieldData, MonsterData, WeaponData } from './config'
 import type { Battle } from './battle'
 import { clamp } from './math'
+import { listScores, rankingTime, saveScore, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-export type Screen = 'loading' | 'title' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error'
-export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh'
+export type Screen = 'loading' | 'title' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings'
+export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'rankings'
 export type Quality = 'low' | 'medium' | 'high'
 const qualityLabels: Record<Quality,string> = {low:'低',medium:'中',high:'高'}
 const clock = (seconds: number) => {
@@ -47,7 +48,7 @@ export class Interface {
     this.data=data
     this.bossName.textContent=data.name
   }
-  show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string) {
+  show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string, run?:RankingRun, result?:Promise<number|null>) {
     this.current=screen
     this.menu.hidden=!screen
     this.menu.dataset.screen=screen??''
@@ -63,11 +64,25 @@ export class Interface {
       <p class="title-note">大剣を手に、夕凪の石浜へ。</p>
       <div class="menu-actions monster-menu" aria-label="討伐対象を選ぶ">${this.roster.map(monster=>
         `<button class="primary" data-monster="${monster.id}">${monster.name}<span aria-hidden="true">→</span></button>`).join('')}</div>
-      <div class="menu-actions">${button('help','操作方法')}</div>${settings}`
+      <div class="menu-actions">${button('rankings','世界ランキング')}${button('help','操作方法')}</div>${settings}`
+    if (screen==='rankings') {
+      this.panel.innerHTML=`
+        <div class="eyebrow">TIME ATTACK</div><h2>世界ランキング</h2>
+        <label for="ranking-boss">討伐対象</label>
+        <select id="ranking-boss" class="ranking-field">${this.roster.map(monster=>
+          `<option value="${monster.id}"${monster.id===this.data.id?' selected':''}>${monster.name}</option>`).join('')}</select>
+        <div id="ranking-list" aria-live="polite"></div>
+        <div class="menu-actions">${button('title','タイトルへ')}</div>`
+      const boss=select<HTMLSelectElement>('ranking-boss')
+      const list=select('ranking-list')
+      boss.addEventListener('change',()=>void this.refreshRankings(boss,list))
+      void this.refreshRankings(boss,list)
+    }
     if (screen==='quest') this.panel.innerHTML=`
       <div class="eyebrow">討伐クエスト</div><h2>${this.data.name}</h2>
       <dl><div><dt>狩場</dt><dd>${this.field.name}</dd></div><div><dt>武器</dt><dd>${this.weapon.name}</dd></div></dl>
       <p>予兆を見極めてかわし、攻撃後の隙に大剣を振り込め。</p>
+      <p class="ranking-note">世界ランキングのタイムには一時停止中の時間も含まれる。</p>
       <div class="menu-actions">${button('start','狩りを始める',true)}${button('title','戻る')}</div>`
     if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
     if (screen==='help') this.panel.innerHTML=`
@@ -87,12 +102,86 @@ export class Interface {
       <div class="eyebrow">${screen==='victory'?'QUEST CLEARED':'QUEST FAILED'}</div>
       <h2>${screen==='victory'?'討伐成功':'討伐失敗'}</h2>
       <dl><div><dt>対象</dt><dd>${this.data.name}</dd></div><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl>
-      <div class="menu-actions">${button('retry','再挑戦',true)}${button('title','タイトルへ')}</div>`
+      ${screen==='victory'?'<div id="ranking-result"></div>':''}
+      <div class="menu-actions">${button('retry','再挑戦',true)}${button('title','タイトルへ')}${screen==='victory'?button('rankings','世界ランキング'):''}</div>`
+    if (screen==='victory') void this.showRankingResult(select('ranking-result'),run,result)
     if (screen==='error') {
       this.panel.innerHTML=`<div class="eyebrow">読み込みエラー</div><h2>狩場を開けない</h2><p id="error-detail"></p><div class="menu-actions">${button('refresh','再読み込み',true)}</div>`
       select('error-detail').textContent=error??'読み込みに失敗した。'
     }
     this.panel.scrollTop=0
+  }
+  private async refreshRankings(boss:HTMLSelectElement, list:HTMLElement) {
+    const selected=boss.value
+    const loading=document.createElement('p')
+    loading.textContent='ランキングを読み込み中…'
+    list.replaceChildren(loading)
+    try {
+      const scores=await listScores(selected)
+      if(!loading.isConnected) return
+      if(!scores.length) {
+        loading.textContent='このボスの討伐記録はまだない。'
+        return
+      }
+      const table=document.createElement('table')
+      table.className='ranking-table'
+      table.innerHTML='<thead><tr><th scope="col">順位</th><th scope="col">プレイヤー</th><th scope="col">討伐タイム</th></tr></thead>'
+      const body=table.createTBody()
+      for(const [index,score] of scores.entries()) {
+        const row=body.insertRow()
+        for(const value of [String(index+1),score.nickname,rankingTime(score.time_ms)]) row.insertCell().textContent=value
+      }
+      list.replaceChildren(table)
+    } catch {
+      if(!loading.isConnected) return
+      loading.textContent='ランキングに接続できなかった。'
+      const retry=document.createElement('button')
+      retry.type='button'; retry.className='secondary'; retry.textContent='再読み込み'
+      retry.addEventListener('click',()=>void this.refreshRankings(boss,list))
+      list.append(retry)
+    }
+  }
+  private async showRankingResult(container:HTMLElement,run?:RankingRun,result?:Promise<number|null>) {
+    container.innerHTML='<p class="ranking-note" role="status">ランキング用の討伐タイムを確認中…</p>'
+    const status=container.querySelector('p')!
+    const time=await result
+    if(!container.isConnected) return
+    if(!run || time==null) {
+      status.textContent='今回は世界ランキングに登録できない。'
+      return
+    }
+    const label=`世界ランキング用タイム ${rankingTime(time)}`
+    status.textContent=label
+    const form=document.createElement('form')
+    form.className='ranking-entry'
+    form.innerHTML=`<label for="ranking-nickname">公開ニックネーム</label>
+      <input id="ranking-nickname" class="ranking-field" type="text" required autocomplete="nickname" maxlength="32">
+      <button class="secondary" type="submit">記録を登録</button>`
+    const input=form.querySelector('input')!
+    const submit=form.querySelector('button')!
+    try { input.value=localStorage.getItem('shiosai-ranking-nickname')??'' } catch { /* Optional preference. */ }
+    form.addEventListener('submit',async event=>{
+      event.preventDefault()
+      if(submit.disabled) return
+      const nickname=input.value.trim()
+      if(!nickname || [...nickname].length>16 || /[<>\u0000-\u001f\u007f]/.test(nickname)) {
+        status.textContent='ニックネームは1〜16文字で入力して。記号の < と > は使えない。'
+        return
+      }
+      submit.disabled=true; input.disabled=true
+      status.textContent='記録を登録中…'
+      try {
+        const saved=await saveScore(run,nickname)
+        try { localStorage.setItem('shiosai-ranking-nickname',nickname) } catch { /* Optional preference. */ }
+        form.remove()
+        status.textContent=saved.personal_best?`自己ベストを登録した · ${rankingTime(saved.time_ms)}`:
+          `${label} · 登録済みの自己ベスト ${rankingTime(saved.time_ms)}`
+      } catch {
+        input.disabled=false; submit.disabled=false
+        status.textContent='記録を登録できなかった。もう一度試して。'
+      }
+    })
+    container.append(form)
   }
   status(b: Battle, lock: boolean) {
     if (this.current && this.current!=='paused') return
