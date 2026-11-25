@@ -7,6 +7,7 @@ import { Effects } from './effects'
 import { HunterModel } from './hunter'
 import { Controls } from './input'
 import { MonsterModel } from './monster-model'
+import { beginRun, finishRun, type RankingRun } from './rankings'
 import { Interface, type Command, type Quality, type Screen } from './ui'
 import { Arena } from './world'
 import { sabottenanbon, sabottenanbonOvergrowth, sabotProfiles } from './sabottenanbon/config'
@@ -36,6 +37,8 @@ const battles=new Map<string,Battle>()
 let camera: HuntCamera
 let fx: Effects
 let battle: Battle
+let rankingRun: RankingRun | undefined
+let rankingResult: Promise<number|null> | undefined
 let hunterShadow: ContactShadow, bossShadow: ContactShadow
 let dirty=true, frameCount=0
 let latest=performance.now(), titleTime=0, accumulator=0, uiTimer=0
@@ -54,7 +57,7 @@ function switchTo(next: Screen | null) {
   accumulator=0
   dirty=true
   reticle.hidden=true
-  ui.show(next,quality,battle)
+  ui.show(next,quality,battle,undefined,rankingRun,rankingResult)
 }
 async function loadBattle(data:MonsterData) {
   const cached=battles.get(data.id)
@@ -90,16 +93,21 @@ async function chooseMonster(id:string) {
     switchTo('quest')
   } catch(error) { fail(error) }
 }
+async function startHunt() {
+  switchTo('loading')
+  rankingRun=await beginRun(battle.monster.data.id).catch(()=>undefined)
+  rankingResult=undefined
+  battle.reset(); camera.reset(battle); switchTo(null)
+  ui.status(battle,battle.lock)
+}
 function command(action: Command) {
   if(action==='refresh') { location.reload(); return }
   if(!battle) return
   switch(action) {
     case 'title': battle.reset(); switchTo('title'); break
+    case 'rankings': switchTo('rankings'); break
     case 'start':
-    case 'retry':
-      battle.reset(); camera.reset(battle); switchTo(null)
-      ui.status(battle,battle.lock)
-      break
+    case 'retry': void startHunt(); break
     case 'resume': switchTo(null); break
     case 'help': helpFrom=screen==='paused'?'paused':'title'; switchTo('help'); break
     case 'back': switchTo(helpFrom); break
@@ -145,6 +153,9 @@ function frame(now: number) {
       accumulator-=step
       if(fx.hitstop>0) fx.hitstop=Math.max(0,fx.hitstop-step)
       else { battle.update(step,input,camera.yaw); input.endFrame() }
+    }
+    if(battle.outcome==='victory' && rankingRun && !rankingResult) {
+      rankingResult=finishRun(rankingRun).catch(()=>null)
     }
     camera.update(dt,battle,lookX,fx.shake)
     fx.update(dt,p=>p.project(camera.camera))

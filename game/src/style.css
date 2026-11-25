@@ -24,7 +24,7 @@ body:not([data-screen="battle"]) { touch-action: pan-y; }
 body:not([data-screen="battle"]) #shade {
   background: linear-gradient(90deg,#141b18f0 0%,#141b18c4 26%,#11191662 52%,#1217190a 79%), linear-gradient(0deg,#121a1779 0%,transparent 32%);
 }
-body:is([data-screen="paused"],[data-screen="help"],[data-screen="victory"],[data-screen="failure"]) #shade {
+body:is([data-screen="paused"],[data-screen="help"],[data-screen="victory"],[data-screen="failure"],[data-screen="rankings"]) #shade {
   background: linear-gradient(90deg,#101613f5,#101613ae 43%,#10161330),radial-gradient(ellipse at center,transparent,#10161376);
 }
 button { font: inherit; cursor: pointer; color: inherit; -webkit-tap-highlight-color: transparent; }
@@ -59,6 +59,18 @@ dd { margin: 0; font-size: .93rem; font-weight: 700; }
 table { border-collapse: collapse; width: 100%; font-size: .79rem; color: var(--paper); }
 th,td { text-align: left; padding: 5px 8px 5px 0; border-bottom: 1px solid #dbca9435; }
 thead { color: var(--gold); }
+.ranking-entry { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+.ranking-entry label { flex-basis:100%; }
+.ranking-field { max-width:100%; min-height:44px; padding:8px 10px; font:inherit; font-size:16px; color:var(--paper); background:#252d24; border:1px solid #dbca947f; }
+select.ranking-field { display:block; margin-top:7px; }
+input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-select:text; }
+.ranking-note { margin:8px 0 14px; }
+.ranking-table { margin:10px 0 16px; table-layout:fixed; }
+.ranking-table th:first-child { width:3rem; }
+.ranking-table th:last-child { width:7.2rem; }
+.ranking-table td { overflow-wrap:anywhere; }
+.ranking-table td:last-child { font-variant-numeric:tabular-nums; white-space:nowrap; }
+#ranking-list > .secondary { margin-bottom:12px; }
 .loading-line { width: 150px; height: 3px; background: linear-gradient(90deg,transparent,var(--gold),transparent); animation: breathe 1.4s infinite alternate; }
 @keyframes breathe { from { opacity:.29; } to { opacity: 1; } }
 
