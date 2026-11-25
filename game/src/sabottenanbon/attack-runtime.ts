@@ -9,7 +9,7 @@ import { ArenaGeometry } from './arena-geometry'
 import { AttackEffects } from './effects.js'
 import { createSocketReader, planBurst, projectilePosition } from './projectiles.js'
 import type { AttackTimeline, Breath, Burst, Shot, SocketReader } from './timeline-types'
-import { combat, type SabotAttack } from './config'
+import type { SabotAttack, SabotCombatProfile } from './config'
 import eventData from './attack_events.json'
 import objectData from './objects.json'
 import effectData from './effects.json'
@@ -46,15 +46,17 @@ export class AttackRuntime {
   private readonly read:SocketReader
   private readonly effects:AttackEffects
 
-  static async load(scene:Scene,arena:Arena,model:MonsterModel,quality:Quality) {
+  static async load(scene:Scene,arena:Arena,model:MonsterModel,quality:Quality,profile:SabotCombatProfile) {
     const thorn=await new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'models/sabottenanbon/'+objectData.objects.cinder_thorn.model)
-    return new AttackRuntime(arena,model,scene,thorn.scene,quality)
+    return new AttackRuntime(arena,model,scene,thorn.scene,quality,profile)
   }
 
-  private constructor(arena:Arena,model:MonsterModel,scene:Scene,thorn:import('three').Group,quality:Quality) {
+  private constructor(arena:Arena,model:MonsterModel,scene:Scene,thorn:import('three').Group,quality:Quality,
+    readonly profile:SabotCombatProfile) {
     this.geometry=new ArenaGeometry(arena)
     this.read=createSocketReader(model.root,eventData.sockets)
-    this.effects=new AttackEffects({scene,thornModel:thorn,objects:objectData,config:effectData,events:eventData,quality,breathReader:this.geometry.breath})
+    this.effects=new AttackEffects({scene,thornModel:thorn,objects:objectData,config:effectData,events:eventData,
+      quality,breathReader:this.geometry.breath,thornCapacity:profile.thornCapacity})
     this.effects.glow=.55
   }
 
@@ -63,7 +65,7 @@ export class AttackRuntime {
   get glowing() { return this.effects.breathGroup.visible }
   get glowLayer() { return this.effects.breathGroup }
 
-  begin(id:SabotAttack,rate=1) {
+  begin(id:SabotAttack,rate=this.profile.attacks[id].rate) {
     if(!Number.isFinite(rate)||rate<=0) throw new Error("再生速度は正の数で指定してください")
     const timeline=timelineFor(id)
     this.active={timeline,start:this.time,rate,group:++this.group,eventIndex:0,breathTime:-Infinity,detonated:false,
@@ -126,7 +128,7 @@ export class AttackRuntime {
       if (breath && local>=breath.start && local<breath.end && end+epsilon>=run.breathTime &&
           this.geometry.hitsBreath(this.geometry.breath(breath,local,this.read,false),hunter)) {
         run.breathTime=end+breath.hit.tickSeconds
-        hit(combat.attacks[run.timeline.id].breath,this.read(breath.attachment).position,false)
+        hit(this.profile.attacks[run.timeline.id].breath,this.read(breath.attachment).position,false)
       }
       if (local+epsilon>=run.timeline.duration &&
           run.eventIndex>=events.length) this.active=undefined
@@ -142,9 +144,19 @@ export class AttackRuntime {
   }
 
   private emit(run:TimelineRun,event:Burst) {
-    const def=objectData.objects[event.object as keyof typeof objectData.objects]
+    const base=objectData.objects[event.object as keyof typeof objectData.objects]
     const plant=event.detonateAt!==undefined
-    const burst={...event,time:run.start+event.time/run.rate,detonateAt:plant?Infinity:undefined}
+    const wave=this.profile.attacks[run.timeline.id].wave
+    const flightRate=wave?.flightRate??1
+    // Compress flight time without shortening the ballistic path.
+    const def=wave?{...base,maxSpeed:base.maxSpeed*flightRate,lifetime:base.lifetime/flightRate,
+      acceleration:base.acceleration.map(axis=>axis*flightRate**2)}:base
+    const burst:Burst={...event,time:run.start+event.time/run.rate,detonateAt:plant?Infinity:undefined}
+    if(wave) Object.assign(burst,{
+      countPerEmitter:wave.countPerEmitter,layers:wave.layers,spreadDegrees:event.spreadDegrees*wave.spread,
+      speed:event.speed*flightRate,lift:event.lift*flightRate,liftVariance:.43*flightRate,
+      hit:{...event.hit,explosionRadius:event.hit.explosionRadius*wave.blastScale},
+    })
     const spawned=planBurst(burst,def,this.read,[],this.serial,this.geometry.contact)
     this.serial+=spawned.length
     this.shots.push(...spawned.map(shot=>({...shot,plant,group:run.group,hitHunter:false,cancelPlant:false})))
@@ -168,7 +180,7 @@ export class AttackRuntime {
       projectilePosition(shot,b-shot.launchTime,this.to).sub(t)
       if(!this.geometry.hitsSweep(this.from,this.to,shot.hit.radius)) continue
       this.source.copy(t).sub(shot.velocity)
-      if(!hit(combat.thorn.direct,this.source,false)) continue
+      if(!hit(this.profile.thorn.direct,this.source,false)) continue
       shot.hitHunter=true
       if(!shot.plant) {
         shot.impactTime=shot.detonateTime=b
@@ -188,13 +200,13 @@ export class AttackRuntime {
          start>=shot.detonateTime+shot.hit.explosionDuration ||
          !this.geometry.hitsSphere(shot.impactCenter,hunter,shot.hit.explosionRadius)) continue
       if(!shot.plant) {
-        if(hit(combat.thorn.blast,shot.impactCenter,false)) shot.hitHunter=true
+        if(hit(this.profile.thorn.blast,shot.impactCenter,false)) shot.hitHunter=true
       } else if(!this.detonationsHit.has(shot.group)) {
         const d=hunter.distanceToSquared(shot.impactCenter)
         if(d<distance) { distance=d; nearest=shot }
       }
     }
-    if(nearest&&hit(combat.attacks.special_01.detonation,nearest.impactCenter,true)){
+    if(nearest&&hit(this.profile.attacks.special_01.detonation,nearest.impactCenter,true)){
       this.detonationsHit.add(nearest.group)
     }
   }

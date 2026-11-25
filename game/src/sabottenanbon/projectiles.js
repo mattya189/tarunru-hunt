@@ -68,16 +68,20 @@ function limitDistance(shot, lifetime, maxDistance) {
 
 export function planBurst(event, definition, readSocket, planes, firstIndex = 0, resolveContact) {
   const shots = [];
+  const layers = event.layers ?? 1;
+  const columns = Math.ceil(event.countPerEmitter / layers);
   for (const emitter of event.emitters) {
     const {position, direction} = readSocket(emitter);
     direction.y = 0; // Branch movement supplies yaw; lift is authored independently.
     if (direction.lengthSq() < 1e-6) direction.copy(Z);
     direction.normalize();
     for (let index = 0; index < event.countPerEmitter; index++) {
-      const u = index / Math.max(1, event.countPerEmitter - 1) - .5;
-      const yaw = THREE.MathUtils.degToRad(u * event.spreadDegrees);
-      const velocity = direction.clone().applyAxisAngle(UP, yaw).multiplyScalar(event.speed * (1 - .12*Math.abs(u)));
-      velocity.y = event.lift + .43 * Math.cos(index * 2.2);
+      const u = (index % columns) / Math.max(1, columns - 1) - .5;
+      const row = layers === 1 ? 0 : Math.floor(index / columns) / (layers - 1) - .5;
+      const yaw = THREE.MathUtils.degToRad(u * event.spreadDegrees + row * 12);
+      const velocity = direction.clone().applyAxisAngle(UP, yaw)
+        .multiplyScalar(event.speed * (1 - .12*Math.abs(u)) * (1 + .58*row));
+      velocity.y = event.lift + (event.liftVariance ?? .43) * Math.cos(index * 2.2);
       const shot = {index:firstIndex + shots.length, launchTime:event.time, origin:position.clone(),
         scale:event.scale, velocity, acceleration:new THREE.Vector3(...definition.acceleration), hit:event.hit,
         roll:definition.initialRollRadians, spin:definition.rollRadiansPerSecond};
