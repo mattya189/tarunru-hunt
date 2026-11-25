@@ -1,0 +1,504 @@
+{
+  "version": 1,
+  "monster": {
+    "id": "MON_001",
+    "name": "サボッテンアンボン",
+    "element": "fire"
+  },
+  "timeUnit": "animation_seconds",
+  "axes": {
+    "up": "+Y",
+    "neutralForward": "+Z"
+  },
+  "demoArena": {
+    "groundY": 0,
+    "minX": -7,
+    "maxX": 7,
+    "minZ": -7,
+    "maxZ": 7
+  },
+  "sockets": {
+    "mouth": {
+      "node": "socket_mouth",
+      "offset": [
+        0,
+        0.035,
+        0.025
+      ],
+      "forward": [
+        0,
+        -0.18,
+        1
+      ]
+    },
+    "left": {
+      "node": "socket_hand_L",
+      "offset": [
+        0.035,
+        0.012,
+        0.04
+      ],
+      "forward": [
+        0.78,
+        0.0,
+        0.63
+      ]
+    },
+    "right": {
+      "node": "socket_hand_R",
+      "offset": [
+        -0.035,
+        0.012,
+        0.04
+      ],
+      "forward": [
+        -0.78,
+        0.0,
+        0.63
+      ]
+    },
+    "special": {
+      "node": "socket_special",
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "forward": [
+        0,
+        0,
+        -1
+      ]
+    },
+    "ground": {
+      "node": "socket_ground",
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "forward": [
+        0,
+        1,
+        0
+      ]
+    },
+    "headLeft": {
+      "node": "socket_head",
+      "offset": [
+        0.3,
+        -0.035,
+        0.15
+      ],
+      "forward": [
+        0.55,
+        0,
+        1
+      ]
+    },
+    "headRight": {
+      "node": "socket_head",
+      "offset": [
+        -0.3,
+        -0.035,
+        0.15
+      ],
+      "forward": [
+        -0.55,
+        0,
+        1
+      ]
+    },
+    "headForward": {
+      "node": "socket_head",
+      "offset": [
+        0,
+        0.11,
+        0.26
+      ],
+      "forward": [
+        0,
+        0,
+        1
+      ]
+    },
+    "body": {
+      "node": "socket_body",
+      "offset": [
+        0,
+        0,
+        0.04
+      ],
+      "forward": [
+        0,
+        0,
+        1
+      ]
+    },
+    "mouthRelease": {
+      "node": "socket_mouth",
+      "offset": [
+        0,
+        0.035,
+        0.025
+      ],
+      "forward": [
+        0,
+        -0.8,
+        1
+      ]
+    }
+  },
+  "attacks": [
+    {
+      "id": "attack_01",
+      "label": "攻撃1 · 三連爆ぜ棘",
+      "clip": "attack_01",
+      "duration": 2.4,
+      "events": [
+        {
+          "time": 0.6,
+          "end": 0.96,
+          "type": "thorn_charge",
+          "effect": "thorn_charge",
+          "emitters": [
+            "headLeft"
+          ]
+        },
+        {
+          "time": 0.96,
+          "type": "thorn_burst",
+          "id": "head_first",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "headLeft"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 52,
+          "speed": 5.3,
+          "lift": 0.75,
+          "scale": 1,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.13,
+            "explosionRadius": 0.52,
+            "explosionDuration": 0.13
+          }
+        },
+        {
+          "time": 1.05,
+          "end": 1.32,
+          "type": "thorn_charge",
+          "effect": "thorn_charge",
+          "emitters": [
+            "headRight"
+          ]
+        },
+        {
+          "time": 1.32,
+          "type": "thorn_burst",
+          "id": "head_second",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "headRight"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 52,
+          "speed": 5.3,
+          "lift": 0.75,
+          "scale": 1,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.13,
+            "explosionRadius": 0.52,
+            "explosionDuration": 0.13
+          }
+        },
+        {
+          "time": 1.42,
+          "end": 1.68,
+          "type": "thorn_charge",
+          "effect": "thorn_charge",
+          "emitters": [
+            "headForward"
+          ]
+        },
+        {
+          "time": 1.68,
+          "type": "thorn_burst",
+          "id": "head_third",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "headForward"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 52,
+          "speed": 5.3,
+          "lift": -0.35,
+          "scale": 1,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.13,
+            "explosionRadius": 0.52,
+            "explosionDuration": 0.13
+          }
+        },
+        {
+          "type": "motion_end",
+          "time": 2.4
+        },
+        {
+          "type": "attack_end",
+          "time": 2.65
+        }
+      ],
+      "previewDuration": 2.65
+    },
+    {
+      "id": "attack_05",
+      "label": "攻撃5 · 焼き込みブレス",
+      "clip": "attack_05",
+      "duration": 3.8,
+      "events": [
+        {
+          "time": 0.95,
+          "end": 2.356,
+          "type": "thorn_charge",
+          "effect": "thorn_charge",
+          "emitters": [
+            "body"
+          ]
+        },
+        {
+          "time": 1.9,
+          "start": 2.356,
+          "end": 2.65,
+          "fadeEnd": 2.92,
+          "type": "breath",
+          "effect": "fire_breath",
+          "contactEffect": "scorch",
+          "attachment": "mouthRelease",
+          "follow": true,
+          "tracking": false,
+          "sweep": "animated_head",
+          "sweepOffsetDegrees": 0,
+          "appearance": "pulsed_fire",
+          "speed": 23,
+          "hit": {
+            "type": "axialFrustum",
+            "range": 4.8,
+            "halfAngleDegrees": 10,
+            "nearRadius": 0.105,
+            "tickSeconds": 0.18,
+            "clipToPlanes": true
+          }
+        },
+        {
+          "time": 2.356,
+          "type": "thorn_burst",
+          "id": "flank_2.356",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "left",
+            "right"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 30,
+          "speed": 4.3,
+          "lift": 0.35,
+          "scale": 1,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.13,
+            "explosionRadius": 0.52,
+            "explosionDuration": 0.13
+          }
+        },
+        {
+          "type": "attack_end",
+          "time": 3.8
+        }
+      ],
+      "requiresEnrage": true
+    },
+    {
+      "id": "special_01",
+      "label": "必殺1 · 火輪と爆ぜ棘",
+      "clip": "special_01",
+      "duration": 6,
+      "events": [
+        {
+          "time": 0.38,
+          "end": 1.5,
+          "type": "thorn_charge",
+          "effect": "thorn_charge",
+          "emitters": [
+            "left",
+            "right",
+            "special"
+          ]
+        },
+        {
+          "time": 0.95,
+          "start": 1.5,
+          "end": 4.62,
+          "fadeEnd": 4.87,
+          "type": "breath",
+          "effect": "fire_breath",
+          "contactEffect": "scorch",
+          "attachment": "mouth",
+          "follow": true,
+          "tracking": false,
+          "sweep": "animated_head",
+          "sweepOffsetDegrees": 0,
+          "appearance": "pulsed_fire",
+          "speed": 23,
+          "hit": {
+            "type": "axialFrustum",
+            "range": 4.15,
+            "halfAngleDegrees": 12,
+            "nearRadius": 0.11,
+            "tickSeconds": 0.18,
+            "clipToPlanes": true
+          }
+        },
+        {
+          "time": 1.54,
+          "type": "thorn_burst",
+          "id": "sweep_1.54",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "left",
+            "right"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 34,
+          "speed": 5.05,
+          "lift": 1.15,
+          "scale": 1.12,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.1456,
+            "explosionRadius": 0.66,
+            "explosionDuration": 0.13
+          },
+          "detonateAt": 4.62
+        },
+        {
+          "time": 2.32,
+          "type": "thorn_burst",
+          "id": "sweep_2.32",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "left",
+            "right"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 34,
+          "speed": 5.05,
+          "lift": 0.95,
+          "scale": 1.12,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.1456,
+            "explosionRadius": 0.66,
+            "explosionDuration": 0.13
+          },
+          "detonateAt": 4.62
+        },
+        {
+          "time": 3.1,
+          "type": "thorn_burst",
+          "id": "sweep_3.1",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "left",
+            "right"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 34,
+          "speed": 5.05,
+          "lift": 1.15,
+          "scale": 1.12,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.1456,
+            "explosionRadius": 0.66,
+            "explosionDuration": 0.13
+          },
+          "detonateAt": 4.62
+        },
+        {
+          "time": 3.88,
+          "type": "thorn_burst",
+          "id": "sweep_3.88",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "left",
+            "right"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 34,
+          "speed": 5.05,
+          "lift": 0.95,
+          "scale": 1.12,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.1456,
+            "explosionRadius": 0.66,
+            "explosionDuration": 0.13
+          },
+          "detonateAt": 4.62
+        },
+        {
+          "time": 3.99,
+          "type": "thorn_burst",
+          "id": "finish_3.99",
+          "object": "cinder_thorn",
+          "effect": "thorn_blast",
+          "emitters": [
+            "special"
+          ],
+          "countPerEmitter": 3,
+          "spreadDegrees": 60,
+          "speed": 4.3,
+          "lift": -0.4,
+          "scale": 1.16,
+          "movement": "ballistic",
+          "hit": {
+            "type": "sweptSphere",
+            "radius": 0.1508,
+            "explosionRadius": 0.66,
+            "explosionDuration": 0.13
+          },
+          "detonateAt": 4.62
+        },
+        {
+          "type": "detonate_thorns",
+          "time": 4.62,
+          "effect": "thorn_blast"
+        },
+        {
+          "type": "attack_end",
+          "time": 6
+        }
+      ]
+    }
+  ]
+}

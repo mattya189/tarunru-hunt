@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "quality": {
+    "low": {
+      "pixelRatio": 1,
+      "flameSegments": 12,
+      "breathEmbers": 22,
+      "burstParticles": 7,
+      "bloom": 0
+    },
+    "medium": {
+      "pixelRatio": 1.35,
+      "flameSegments": 18,
+      "breathEmbers": 39,
+      "burstParticles": 11,
+      "bloom": 0.15
+    },
+    "high": {
+      "pixelRatio": 1.65,
+      "flameSegments": 24,
+      "breathEmbers": 58,
+      "burstParticles": 16,
+      "bloom": 0.22
+    }
+  },
+  "effects": {
+    "thorn_charge": {
+      "type": "sparks",
+      "element": "fire",
+      "colors": [
+        "#ffb353",
+        "#df4718"
+      ],
+      "emission": 1.1,
+      "size": 0.28,
+      "particles": 16,
+      "attachment": "event",
+      "follow": true,
+      "duration": "event"
+    },
+    "thorn_blast": {
+      "type": "burst",
+      "element": "fire",
+      "colors": [
+        "#f8a541",
+        "#d34018",
+        "#632c25"
+      ],
+      "emission": 1.25,
+      "particles": "quality.burstParticles",
+      "radius": 0.52,
+      "ultimateRadius": 0.66,
+      "duration": 0.39,
+      "hitDuration": 0.13,
+      "follow": false,
+      "attachment": "impact"
+    },
+    "fire_breath": {
+      "type": "volumetric_mesh",
+      "element": "fire",
+      "colors": [
+        "#ffb23c",
+        "#ef5a16",
+        "#aa2013"
+      ],
+      "emission": 1.18,
+      "particles": "quality.breathEmbers",
+      "size": "event.hit",
+      "attachment": "mouth",
+      "follow": true,
+      "duration": "event",
+      "bloomThreshold": 1.05
+    },
+    "scorch": {
+      "type": "contact",
+      "element": "fire",
+      "colors": [
+        "#b43c16",
+        "#ff8835"
+      ],
+      "emission": 0.85,
+      "size": 0.7,
+      "particles": 0,
+      "duration": 0.31,
+      "attachment": "surface",
+      "follow": true
+    }
+  }
+}
