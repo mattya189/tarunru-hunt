@@ -47,10 +47,12 @@ p { color: var(--muted); font-size: .94rem; margin: 12px 0 22px; line-height: 1.
 .secondary:hover { background: #414637; }
 .site-mark { position: fixed; bottom: var(--bottom); right: var(--right); font-size: 10px; font-weight: 850; letter-spacing: .28em; color:#faf0d8; opacity:.77; text-shadow: 0 2px 6px #152018; pointer-events: none; }
 .site-mark span { color: var(--gold); }
-.settings { display: flex; align-items: center; gap: 13px; margin-top: 22px; color: #d0c7b0; font-size: 12px; }
+.options { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:22px; }
+.settings { display: flex; align-items: center; gap: 9px; color: #d0c7b0; font-size: 12px; }
 .settings div { display: flex; }
 .settings button { min-width: 36px; min-height: 35px; background: #252d248a; border: 1px solid #d9bd8345; }
 .settings button[aria-pressed="true"] { color: var(--ink); background: #d7b67f; }
+.bgm-settings button { min-width:44px; min-height:44px; }
 dl { display: flex; flex-direction: column; gap: 1px; max-width: 335px; margin: 19px 0 12px; }
 dl div { display: flex; padding: 8px 0; border-bottom: 1px solid #dbc89338; gap: 15px; align-items: baseline; }
 dt { min-width: 65px; font-size: .79rem; color: #c3b391; }
@@ -189,7 +191,7 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
   h1 { font-size:clamp(47px,11.8vh,68px); margin:12px 0; }
   h2 { font-size: min(9.4vh,46px); margin:10px 0; }
   .title-note,p { margin-block:8px 12px; }
-  .settings { margin-top:12px; }
+  .options { margin-top:12px; }
   .hunter { width:min(190px,26vw); padding:5px 9px 7px; }
   .boss-label { padding-top:2px; }
   .actions { --button:clamp(47px,14.4vh,62px); }
