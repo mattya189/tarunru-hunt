@@ -2,7 +2,7 @@ import { Vector3 } from 'three'
 import { Battle, type BossState } from '../battle'
 import type { Controls } from '../input'
 import { clamp, flatDistance, forward, wrap, yawTo } from '../math'
-import { combat, type SabotAttack } from './config'
+import type { SabotAttack } from './config'
 import { AttackRuntime, timelineFor } from './attack-runtime'
 
 export class SabotBattle extends Battle {
@@ -36,7 +36,7 @@ export class SabotBattle extends Battle {
     if(this.runtime?.active && (state==='stagger'||state==='fall'||state==='defeat')) {
       const id=this.runtime.active.timeline.id
       this.runtime.interrupt()
-      this.readyAt[id]=this.runtime.time+combat.attacks[id].cooldown
+      this.readyAt[id]=this.runtime.time+this.runtime.profile.attacks[id].cooldown
     }
     if(state==='fall') this.standingUp=false
     super.setBoss(state)
@@ -44,6 +44,7 @@ export class SabotBattle extends Battle {
 
   protected override updateBoss(dt:number) {
     const runtime=this.runtime
+    const combat=runtime.profile
     const data=this.monster.data
     const distance=flatDistance(this.m,this.p), aim=yawTo(this.m,this.p)
     const difference=()=>wrap(aim-this.bossYaw)
@@ -56,7 +57,7 @@ export class SabotBattle extends Battle {
 
     if(runtime.active) {
       const move=runtime.active.timeline.id
-      const remainingAim=combat.attacks[move].aimUntil-runtime.elapsed
+      const remainingAim=(combat.attacks[move].aimUntil-runtime.elapsed)/runtime.active.rate
       if(remainingAim>0) turn(Math.min(dt,remainingAim))
       if(remainingAim<=dt) { this.bossState='attack'; this.callout=timelineFor(move).label }
       this.tickAttacks(dt)
@@ -74,12 +75,12 @@ export class SabotBattle extends Battle {
     switch(this.bossState){
       case 'idle':
         this.monster.animate('idle',dt)
-        if(this.bt>.75 && distance<data.ai.wake) {this.callout='モンスターがこちらに気づいた';this.setBoss('search')}
+        if(this.bt>combat.wakeDelay && distance<data.ai.wake) {this.callout='モンスターがこちらに気づいた';this.setBoss('search')}
         break
       case 'search':
       case 'rage': {
         const motion=this.bossState==='rage'?'enrage':'roar'
-        const duration=this.monster.duration(motion)
+        const duration=this.monster.duration(motion)/combat.introRate
         if(motion==='roar') turn(dt*.5)
         this.monster.animate(motion,dt,clamp(this.bt/duration,0,1))
         if(this.bt>=duration) {this.callout='';this.setBoss('approach')}

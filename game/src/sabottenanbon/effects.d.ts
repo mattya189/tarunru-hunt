@@ -4,7 +4,7 @@ import type { AttackTimeline, Breath, BreathFrame, BreathReader, Shot, SocketRea
 export function sampleBreath(event: Breath, time: number, readSocket: SocketReader, planes: Plane[], fullLength?: boolean): BreathFrame
 export function pointInBreath(point: Vector3, frame: BreathFrame): boolean
 export class AttackEffects {
-  constructor(options: {scene: Object3D; thornModel: Group; objects: object; config: object; events: object; quality:Quality; breathReader:BreathReader})
+  constructor(options: {scene: Object3D; thornModel: Group; objects: object; config: object; events: object; quality:Quality; breathReader:BreathReader; thornCapacity?:number})
   glow:number
   layer:Group
   breathGroup:Group

@@ -9,9 +9,11 @@ export interface Burst {
   object: string
   emitters: string[]
   countPerEmitter: number
+  layers?: number
   spreadDegrees: number
   speed: number
   lift: number
+  liftVariance?: number
   scale: number
   hit: {radius: number; explosionRadius: number; explosionDuration: number}
   detonateAt?: number

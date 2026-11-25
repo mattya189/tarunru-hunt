@@ -147,7 +147,7 @@ export function pointInBreath(point, frame) {
 }
 
 export class AttackEffects {
-  constructor({scene, thornModel, objects, config, events, quality='medium', arena=events.demoArena, breathReader}) {
+  constructor({scene, thornModel, objects, config, events, quality='medium', arena=events.demoArena, breathReader, thornCapacity}) {
     this.scene=scene;
     this.def=objects.objects.cinder_thorn;
     this.config=config;
@@ -157,7 +157,8 @@ export class AttackEffects {
     this.layer=new THREE.Group();
     this.debug=new THREE.Group();
     scene.add(this.layer,this.debug);
-    this.thorns=new ThornInstances(this.layer,thornModel,this.def);
+    this.thorns=new ThornInstances(this.layer,thornModel,{...this.def,maxActive:thornCapacity??this.def.maxActive});
+    this.sparkStride=thornCapacity ? 4 : 1;
     this.shots=[];
     this.options={sockets:false, range:false, paths:false};
     this.glow=1;
@@ -177,8 +178,8 @@ export class AttackEffects {
     this.hitMat=new THREE.LineBasicMaterial({color:0x70e2ce,depthWrite:false,transparent:true,opacity:.85});
     this.pathGroup=new THREE.Group();
     this.debug.add(this.pathGroup);
-    this.markers=new RingBatch(this.layer,this.blastMat,40);
-    this.warning=new RingBatch(this.layer,this.warnMat,32);
+    this.markers=new RingBatch(this.layer,this.blastMat,thornCapacity??40);
+    this.warning=new RingBatch(this.layer,this.warnMat,thornCapacity??32);
     this.socketDebug=Object.keys(events.sockets).map(id => {
       const arrow=new THREE.ArrowHelper(Z,vec(),.62,0x78ffe1,.16,.09);
       arrow.visible=false;
@@ -350,7 +351,7 @@ export class AttackEffects {
   updateShot(shot,time) {
     const flight=time-shot.launchTime;
     const hit=shot.hit;
-    if (flight>=0 && time<shot.impactTime) {
+    if (flight>=0 && time<shot.impactTime && (this.options.range || shot.index%this.sparkStride===0)) {
       const p=projectilePosition(shot,flight);
       this.drawSphere(p,hit.radius);
       const tail=projectilePosition(shot,Math.max(0,flight-.045));
@@ -372,6 +373,7 @@ export class AttackEffects {
       this.drawSphere(center,hit.explosionRadius);
       this.markers.add(surface,normal,outline);
     }
+    if (shot.index%this.sparkStride!==0 || this.particles.count>=this.particles.instanceMatrix.count) return;
     const local=new THREE.Quaternion().setFromUnitVectors(Y,normal);
     const p=vec(), flame=new THREE.Color(), colors=fx.colors.map(c=>new THREE.Color(c));
     for (let i=0;i<this.quality.burstParticles;i++) {
