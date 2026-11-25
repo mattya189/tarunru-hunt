@@ -9,13 +9,13 @@ import { Controls } from './input'
 import { MonsterModel } from './monster-model'
 import { Interface, type Command, type Quality, type Screen } from './ui'
 import { Arena } from './world'
-import { sabottenanbon } from './sabottenanbon/config'
+import { sabottenanbon, sabottenanbonOvergrowth, sabotProfiles } from './sabottenanbon/config'
 import { AttackRuntime, effectData } from './sabottenanbon/attack-runtime'
 import { SabotBattle } from './sabottenanbon/battle'
 import { BreathBloom } from './sabottenanbon/bloom'
 import './style.css'
 
-const roster=[tidebeast,sabottenanbon]
+const roster=[tidebeast,sabottenanbon,sabottenanbonOvergrowth]
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
 const ratios={low:.78,medium:1.16,high:1.78}
@@ -61,8 +61,9 @@ async function loadBattle(data:MonsterData) {
   if(cached) return cached
   const monster=await MonsterModel.load(data)
   let next:Battle
-  if(data.id===sabottenanbon.id) {
-    const runtime=await AttackRuntime.load(scene,arena,monster,quality)
+  const profile=sabotProfiles.get(data.id)
+  if(profile) {
+    const runtime=await AttackRuntime.load(scene,arena,monster,quality,profile)
     const encounter=new SabotBattle(monster,hunter,arena,fx,greatsword)
     encounter.attachRuntime(runtime)
     next=encounter
