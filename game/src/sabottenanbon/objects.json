@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "objects": {
+    "cinder_thorn": {
+      "model": "objects/cinder_thorn.glb",
+      "size": [
+        0.23,
+        0.58,
+        0.17
+      ],
+      "modelForward": [
+        0,
+        1,
+        0
+      ],
+      "initialRollRadians": 0.3,
+      "movement": "ballistic",
+      "speed": 5.3,
+      "maxSpeed": 14,
+      "acceleration": [
+        0,
+        -12.5,
+        0
+      ],
+      "gravity": 12.5,
+      "rollRadiansPerSecond": 8,
+      "maxDistance": 10,
+      "lifetime": 1.35,
+      "maxActive": 32,
+      "hitShape": {
+        "type": "sweptSphere",
+        "radius": 0.13
+      },
+      "tracking": false,
+      "bounces": 0,
+      "piercing": false,
+      "spawnCondition": "thorn_burst",
+      "impactEffect": "thorn_blast",
+      "despawnConditions": [
+        "detonation",
+        "ground_or_wall_when_not_planted",
+        "maxDistance",
+        "lifetime_of_flight"
+      ],
+      "allowsPlanting": true
+    }
+  }
+}
