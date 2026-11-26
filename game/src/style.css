@@ -24,7 +24,7 @@ body:not([data-screen="battle"]) { touch-action: pan-y; }
 body:not([data-screen="battle"]) #shade {
   background: linear-gradient(90deg,#141b18f0 0%,#141b18c4 26%,#11191662 52%,#1217190a 79%), linear-gradient(0deg,#121a1779 0%,transparent 32%);
 }
-body:is([data-screen="paused"],[data-screen="help"],[data-screen="victory"],[data-screen="failure"],[data-screen="rankings"]) #shade {
+body:is([data-screen="paused"],[data-screen="help"],[data-screen="victory"],[data-screen="failure"],[data-screen="rankings"],[data-screen="boss-rankings"]) #shade {
   background: linear-gradient(90deg,#101613f5,#101613ae 43%,#10161330),radial-gradient(ellipse at center,transparent,#10161376);
 }
 button { font: inherit; cursor: pointer; color: inherit; -webkit-tap-highlight-color: transparent; }
@@ -194,4 +194,23 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 }
 @media (prefers-reduced-motion: reduce) { .gauge i { transition:none; } }
 
-.monster-menu { margin-bottom:8px; }
+.difficulty-list,.quest-list { display:grid; gap:8px; margin:0 0 16px; }
+.difficulty-button { display:flex; align-items:center; gap:18px; text-align:left; }
+.difficulty-button strong,.quest-level { color:#edc582; }
+.difficulty-button strong { font-size:1.08rem; }
+.quest-list { list-style:none; max-height:min(320px,46dvh); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; padding:3px; touch-action:pan-y; }
+.quest-row { display:grid; grid-template-columns:54px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; text-align:left; padding:6px 10px 6px 7px; letter-spacing:normal; }
+.quest-icon { width:54px; height:54px; object-fit:contain; display:block; }
+.quest-row > span { color:var(--gold); }
+.quest-heading,.ranking-monster { display:flex; align-items:center; gap:13px; }
+.quest-heading .quest-icon { width:clamp(66px,18vw,90px); height:auto; flex:none; }
+.quest-heading h2 { margin:3px 0 0; font-size:clamp(23px,4.5vw,39px); line-height:1.16; letter-spacing:.01em; }
+.quest-level { font-weight:750; font-size:.9rem; }
+.quest-facts { max-width:none; margin:10px 0; }
+.quest-facts dt { flex:0 0 112px; }
+.quest-facts dt span { display:block; font-size:.69rem; color:var(--muted); margin-top:3px; }
+.quest-guide { background:#252d246e; border:1px solid #dbca944f; margin-bottom:12px; }
+.quest-guide summary { padding:10px 12px; cursor:pointer; color:var(--paper); }
+.quest-guide ul { margin:0; padding:0 13px 11px 30px; line-height:1.55; color:#e7ddc4; font-size:.83rem; }
+.quest-guide li+li { margin-top:5px; }
+.quest-rankings { margin-top:8px; gap:6px; }
