@@ -19,11 +19,8 @@ export class Interface {
   private panel=select('panel')
   private hud=select('hud')
   private touch=select('touch')
-  private clock=select('timer')
-  private bossName=select('boss-name')
   private hp=select('hp')
   private stamina=select('stamina')
-  private bossHp=select('boss-hp')
   private callout=select('callout')
   private rage=select('rage')
   private charge=select('charge-meter')
@@ -32,7 +29,6 @@ export class Interface {
   private cache = new Map<HTMLElement,string>()
 
   constructor(private data: MonsterData, private field: FieldData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private roster: readonly MonsterData[], private choose: (id:string) => void, private music:BattleMusic) {
-    this.bossName.textContent=data.name
     document.documentElement.classList.toggle('coarse',coarse)
     this.panel.addEventListener('click',e => {
       const button=(e.target as HTMLElement).closest<HTMLButtonElement>('button')
@@ -51,7 +47,6 @@ export class Interface {
   }
   selectMonster(data:MonsterData) {
     this.data=data
-    this.bossName.textContent=data.name
   }
   show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string, run?:RankingRun, result?:Promise<number|null>) {
     this.current=screen
@@ -90,7 +85,7 @@ export class Interface {
       <p>${this.data.id==='revotenshi'?'竜巻に当たると移動方向が5秒間逆になる。無敵バリア中は本体のHPが少しずつ回復する。分身体を2体倒すとバリアが壊れる。':this.data.id==='shikouki'?'結晶は大剣で破壊できる。紫煌天獄の着地点から離れ、着地後のダウンを狙え。':'予兆を見極めてかわし、攻撃後の隙に大剣を振り込め。'}</p>
       <p class="ranking-note">世界ランキングのタイムには一時停止中の時間も含まれる。</p>
       <div class="menu-actions">${button('start','狩りを始める',true)}${button('title','戻る')}</div>`
-    if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
+    if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><dl><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
     if (screen==='help') this.panel.innerHTML=`
       <div class="eyebrow">FIELD MANUAL</div><h2>狩りの操作</h2>
       <div class="manual-wrapper"><table><thead><tr><th>操作</th><th>スマホ</th><th>PC</th></tr></thead><tbody>
@@ -191,17 +186,14 @@ export class Interface {
   }
   status(b: Battle, lock: boolean) {
     if (this.current && this.current!=='paused') return
-    this.write(this.clock,clock(b.elapsed))
     this.gauge(this.hp,b.hp,this.weapon.hp)
     this.gauge(this.stamina,Math.floor(b.stamina),this.weapon.stamina)
-    this.gauge(this.bossHp,b.bossHp,this.data.hp,true)
     const notice=b.callout || (lock?'ロックオン中':'')
     const reverse=b.reverseMovement>0 ? `移動反転 ${Math.ceil(b.reverseMovement)}秒` : ''
     this.write(this.callout,[reverse,notice].filter(Boolean).join(' · '))
     this.callout.classList.toggle('warning',b.bossState==='windup'||b.bossState==='rage'||b.reverseMovement>0)
     this.rage.hidden=!b.rage
     this.write(this.rage,b.rageLabel)
-    this.bossHp.classList.toggle('enraged',b.rage)
     this.charge.hidden=b.chargeValue===0
     this.charge.style.setProperty('--value',String(b.chargeValue))
     this.charge.classList.toggle('full',b.chargeValue>=.98)
@@ -211,13 +203,12 @@ export class Interface {
     button?.classList.toggle('locked',lock)
     button?.setAttribute('aria-pressed',String(lock))
   }
-  private gauge(el: HTMLElement,value: number,max: number,hideValue=false) {
+  private gauge(el: HTMLElement,value: number,max: number) {
     const formatted=`${value}/${max}`
     if(this.cache.get(el)===formatted) return
     this.cache.set(el,formatted)
     el.style.setProperty('--value',String(clamp(value/max,0,1)))
     el.setAttribute('aria-valuemin','0'); el.setAttribute('aria-valuemax',String(max)); el.setAttribute('aria-valuenow',String(value))
-    if(!hideValue) el.querySelector('b')!.textContent=`${value} / ${max}`
   }
   private write(el: HTMLElement,text: string) {
     if(el.textContent!==text) el.textContent=text

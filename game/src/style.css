@@ -77,29 +77,19 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 @keyframes breathe { from { opacity:.29; } to { opacity: 1; } }
 
 #hud, #touch { pointer-events: none; }
-.hunter,.boss,.hunt-status { position: absolute; }
-.hunter { top: var(--top); left: var(--left); width: min(244px,34vw); padding: 9px 11px 11px; background: linear-gradient(100deg,#1c2520ea,#1c2520c0); border: 1px solid #dec79860; box-shadow: 0 3px 13px #1b1d174d; }
-.hunter strong,.boss strong { font-family: "Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif; font-size: 1rem; }
-.caption { display: inline-block; margin-right: 10px; font-size: 8px; font-weight: 750; letter-spacing: .19em; color: var(--gold); }
-.gauge { --value: 1; position: relative; overflow: hidden; height: 13px; margin-top: 6px; background:#0d140fe8; border: 1px solid #d5c59650; }
-.gauge i { position: absolute; inset: 0; transform: scaleX(var(--value)); transform-origin: left; transition: transform .11s linear; background: linear-gradient(90deg,#43856f,#95c88f); }
-.gauge b { position: absolute; inset: 0; text-align: right; padding-right: 3px; color: #fff4dd; font-size: 8px; line-height: 11px; text-shadow: 0 1px 2px #152113, 0 1px 3px #152113; font-variant-numeric: tabular-nums; }
-.gauge.stamina { height: 10px; margin-top:4px; }
-.gauge.stamina i { background: linear-gradient(90deg,#b8843f,#f1c979); }
-.gauge.stamina b { line-height: 8px; font-size: 7px; }
-.hunt-status { right: var(--right); top: var(--top); display: flex; align-items: center; gap:10px; }
-.hunt-status b { font-size: .93rem; font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: .08em; text-shadow: 0 1px 5px #101b14,0 2px 8px #101b14; }
-.hunt-status button { display:grid; place-items:center; pointer-events: auto; width: 42px; height: 42px; padding: 0; background: #1b251edb; border: 1px solid #d2bd8b83; touch-action: manipulation; }
-.hunt-status button::before { content:""; width:4px; height:14px; background:currentColor; box-shadow:7px 0 currentColor; transform:translateX(-3.5px); }
-.boss { left:50%; top:var(--top); transform:translateX(-50%); width:min(390px,35vw); text-align:center; }
-.boss-label { display: flex; align-items:center; justify-content:center; gap:8px; padding: 4px 7px 1px; background: linear-gradient(90deg,transparent,#222920e3 18%,#222920e3 82%, transparent); }
-.boss strong { letter-spacing:.08em; }
-.boss-label span { color: #ffab78; font-size:.74rem; font-weight:800; }
-.gauge.enemy { height:9px; margin-top:3px; }
-.gauge.enemy i { background:linear-gradient(90deg,#7f4934,#d08f58); }
-.gauge.enemy.enraged i { background:linear-gradient(90deg,#902e23,#f26e42); }
-#callout { color:#fff0d4; font-size: .77rem; font-weight: 800; margin-top: 7px; text-shadow: 0 2px 4px #172019, 0 0 7px #101a12; }
-#callout.warning { color: #ffe3a2; }
+.battle-top { position:absolute; top:var(--top); left:var(--left); right:var(--right); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.player-gauges { width:min(440px,42vw); max-width:440px; min-width:0; display:grid; gap:4px; }
+.gauge { --value:1; position:relative; overflow:hidden; height:8px; background:#121c16cc; border:1px solid #1f281bbd; border-radius:2px; box-shadow:0 1px 3px #14201863; }
+.gauge i { position:absolute; inset:0; transform:scaleX(var(--value)); transform-origin:left; transition:transform .11s linear; background:linear-gradient(90deg,#65b66e,#a7df85); }
+.gauge.stamina { height:7px; }
+.gauge.stamina i { background:linear-gradient(90deg,#d3a14d,#ffe17c); }
+#pause { flex:0 0 44px; display:grid; place-items:center; pointer-events:auto; width:44px; height:44px; padding:0; background:#1b251edb; border:1px solid #d2bd8b83; touch-action:manipulation; }
+#pause::before { content:""; width:4px; height:14px; background:currentColor; box-shadow:7px 0 currentColor; transform:translateX(-3.5px); }
+.battle-alerts { position:absolute; top:calc(var(--top) + 49px); left:50%; transform:translateX(-50%); width:min(390px,calc(100vw - 2 * max(var(--left),var(--right)) - 108px)); display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:4px 8px; text-align:center; }
+#rage { color:#ffbd93; font-size:.72rem; font-weight:800; padding:2px 6px; background:#2c2218d9; border:1px solid #dfad7973; border-radius:3px; }
+#callout { color:#fff0d4; font-size:.77rem; font-weight:800; text-shadow:0 2px 4px #172019,0 0 7px #101a12; }
+#callout:empty { display:none; }
+#callout.warning { color:#ffe3a2; }
 #quest-banner { position:absolute; left:0; right:0; top:37%; padding:14px; text-align:center; font-family: "Hiragino Mincho ProN","Yu Mincho",serif; font-weight:800; font-size:clamp(25px,4vw,60px); letter-spacing:.25em; background:linear-gradient(90deg,transparent,#253129bf 24%,#253129bf 76%,transparent); animation: banner 2.1s both; }
 @keyframes banner { 0% { opacity: 0; } 15%,70% { opacity:1; } 100% {opacity:0;} }
 #charge-meter { position:absolute; bottom: calc(var(--bottom) + 38px); left:50%; transform:translateX(-50%); width: min(170px,32vw); height: 15px; border:1px solid #f7d395c5; background:#1d231adc; text-align:center; }
@@ -180,8 +170,7 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
   #menu { align-items:flex-end; padding:var(--top) var(--right) max(56px,calc(var(--bottom) + 37px)) max(22px,var(--left)); }
   .menu-card { max-height:calc(100dvh - var(--top) - max(56px,calc(var(--bottom) + 37px))); }
   body:not([data-screen="battle"]) #shade { background:linear-gradient(0deg,#141b18fa,#141b18ec 28%,#141b184e 64%,#141b1800 84%); }
-  .boss { top:calc(var(--top) + 80px); width: min(300px,60vw); }
-  .hunter { width:min(220px,55vw); }
+  .player-gauges { flex:1; }
   #charge-meter { bottom:calc(var(--bottom) + clamp(130px,38vw,170px)); }
   #key-hint { white-space:normal; width:90%; text-align:center; }
 }
@@ -192,8 +181,6 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
   h2 { font-size: min(9.4vh,46px); margin:10px 0; }
   .title-note,p { margin-block:8px 12px; }
   .options { margin-top:12px; }
-  .hunter { width:min(190px,26vw); padding:5px 9px 7px; }
-  .boss-label { padding-top:2px; }
   .actions { --button:clamp(47px,14.4vh,62px); }
   #touch .actions button { font-size:14px; }
   #stick-zone { width:33%; height:45%; }
