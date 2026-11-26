@@ -10,9 +10,13 @@
   <canvas id="view" aria-label="3D闘技場"></canvas>
   <section id="hud" hidden aria-label="戦闘情報">
     <div class="battle-top">
-      <div class="player-gauges">
+      <div class="battle-gauges">
         <div class="gauge life" id="hp" role="meter" aria-label="体力"><i></i></div>
         <div class="gauge stamina" id="stamina" role="meter" aria-label="スタミナ"><i></i></div>
+        <div class="boss-status">
+          <span id="boss-name"></span>
+          <div class="gauge boss-health" id="boss-hp" role="meter" aria-label="敵の体力"><i></i></div>
+        </div>
       </div>
       <button id="pause" aria-label="一時停止"></button>
     </div>

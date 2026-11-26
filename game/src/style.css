@@ -78,11 +78,15 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 
 #hud, #touch { pointer-events: none; }
 .battle-top { position:absolute; top:var(--top); left:var(--left); right:var(--right); display:flex; justify-content:space-between; align-items:center; gap:12px; }
-.player-gauges { width:min(440px,42vw); max-width:440px; min-width:0; display:grid; gap:4px; }
+.battle-gauges { width:min(440px,42vw); max-width:440px; min-width:0; display:grid; gap:4px; }
 .gauge { --value:1; position:relative; overflow:hidden; height:8px; background:#121c16cc; border:1px solid #1f281bbd; border-radius:2px; box-shadow:0 1px 3px #14201863; }
 .gauge i { position:absolute; inset:0; transform:scaleX(var(--value)); transform-origin:left; transition:transform .11s linear; background:linear-gradient(90deg,#65b66e,#a7df85); }
 .gauge.stamina { height:7px; }
 .gauge.stamina i { background:linear-gradient(90deg,#d3a14d,#ffe17c); }
+.boss-status { display:flex; min-width:0; width:min(100%,245px); align-items:center; gap:7px; margin-top:2px; }
+#boss-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:62%; color:#fff1dc; font-size:.625rem; font-weight:700; line-height:1.2; text-shadow:0 1px 2px #162019,0 0 4px #162019; }
+.gauge.boss-health { flex:1; height:5px; }
+.gauge.boss-health i { background:linear-gradient(90deg,#b96b56,#ee9b77); }
 #pause { flex:0 0 44px; display:grid; place-items:center; pointer-events:auto; width:44px; height:44px; padding:0; background:#1b251edb; border:1px solid #d2bd8b83; touch-action:manipulation; }
 #pause::before { content:""; width:4px; height:14px; background:currentColor; box-shadow:7px 0 currentColor; transform:translateX(-3.5px); }
 .battle-alerts { position:absolute; top:calc(var(--top) + 49px); left:50%; transform:translateX(-50%); width:min(390px,calc(100vw - 2 * max(var(--left),var(--right)) - 108px)); display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:4px 8px; text-align:center; }
@@ -170,7 +174,7 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
   #menu { align-items:flex-end; padding:var(--top) var(--right) max(56px,calc(var(--bottom) + 37px)) max(22px,var(--left)); }
   .menu-card { max-height:calc(100dvh - var(--top) - max(56px,calc(var(--bottom) + 37px))); }
   body:not([data-screen="battle"]) #shade { background:linear-gradient(0deg,#141b18fa,#141b18ec 28%,#141b184e 64%,#141b1800 84%); }
-  .player-gauges { flex:1; }
+  .battle-gauges { flex:1; }
   #charge-meter { bottom:calc(var(--bottom) + clamp(130px,38vw,170px)); }
   #key-hint { white-space:normal; width:90%; text-align:center; }
 }

@@ -21,6 +21,8 @@ export class Interface {
   private touch=select('touch')
   private hp=select('hp')
   private stamina=select('stamina')
+  private bossName=select('boss-name')
+  private bossHp=select('boss-hp')
   private callout=select('callout')
   private rage=select('rage')
   private charge=select('charge-meter')
@@ -188,6 +190,8 @@ export class Interface {
     if (this.current && this.current!=='paused') return
     this.gauge(this.hp,b.hp,this.weapon.hp)
     this.gauge(this.stamina,Math.floor(b.stamina),this.weapon.stamina)
+    this.write(this.bossName,b.monster.data.name)
+    this.gauge(this.bossHp,b.bossHp,b.monster.data.hp)
     const notice=b.callout || (lock?'ロックオン中':'')
     const reverse=b.reverseMovement>0 ? `移動反転 ${Math.ceil(b.reverseMovement)}秒` : ''
     this.write(this.callout,[reverse,notice].filter(Boolean).join(' · '))

@@ -5,17 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#141a17">
   <title>潮鳴りの狩場</title>
-  <script type="module" crossorigin src="./assets/index-Vp27Y85o.js"></script>
+  <script type="module" crossorigin src="./assets/index-BKohcjY_.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/three-jsG3rUAt.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-Ddy3UMg8.css">
+  <link rel="stylesheet" crossorigin href="./assets/index-CNBU6vU3.css">
 </head>
 <body>
   <canvas id="view" aria-label="3D闘技場"></canvas>
   <section id="hud" hidden aria-label="戦闘情報">
     <div class="battle-top">
-      <div class="player-gauges">
+      <div class="battle-gauges">
         <div class="gauge life" id="hp" role="meter" aria-label="体力"><i></i></div>
         <div class="gauge stamina" id="stamina" role="meter" aria-label="スタミナ"><i></i></div>
+        <div class="boss-status">
+          <span id="boss-name"></span>
+          <div class="gauge boss-health" id="boss-hp" role="meter" aria-label="敵の体力"><i></i></div>
+        </div>
       </div>
       <button id="pause" aria-label="一時停止"></button>
     </div>
