@@ -68,14 +68,17 @@ export class Effects {
     this.spawn(item,p,life,from,to,color,opacity)
     item.mesh.position.y += .055
   }
-  hit(p: Vector3, value: number, caption: string, color: number, heavy: boolean, playerHit: boolean) {
+  burst(p: Vector3,color: number,heavy: boolean,spread=1) {
     let count = Math.min(heavy ? 14 : 8,this.limit)
     for (const e of this.entries) {
       if (e.ring || e.life || count <= 0) continue
       count--
       this.spawn(e,p,.28+Math.random()*.25,heavy ? 2 : 1.3,.3,color,.93)
-      e.vx = (Math.random()-.5)*8; e.vy = 1+Math.random()*4; e.vz = (Math.random()-.5)*8
+      e.vx = (Math.random()-.5)*8*spread; e.vy = 1+Math.random()*4; e.vz = (Math.random()-.5)*8*spread
     }
+  }
+  hit(p: Vector3, value: number, caption: string, color: number, heavy: boolean, playerHit: boolean) {
+    this.burst(p,color,heavy)
     const number = this.numbers.find(n => !n.life) ?? this.numbers[0]
     number.p.copy(p); number.life = .88
     number.node.textContent = String(value)

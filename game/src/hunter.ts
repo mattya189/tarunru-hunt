@@ -104,6 +104,8 @@ export class HunterModel {
     this.weapon.add(this.grip,this.secondGrip,this.heel,this.tip)
   }
 
+  showSword(visible:boolean) { this.posture.visible=visible }
+
   pose(state: HunterPose, p: number, dt: number, combo: number, moving: number) {
     this.stride += dt * 11.3
     const run = state === 'run' ? moving : 0

@@ -1,5 +1,6 @@
 import { Vector3 } from 'three'
 import { Battle } from '../battle'
+import type { HitVolume } from '../flare/combat'
 import type { WeaponData } from '../config'
 import type { Effects } from '../effects'
 import type { HunterModel } from '../hunter'
@@ -47,21 +48,29 @@ export class ShikoukiBattle extends Battle {
     return !this.attacks.action && !this.attacks.isRecovering
   }
 
-  protected override strikeSecondary(damage:number) {
+  protected override strikeSecondary(damage:number,volume?:HitVolume,area=false) {
     let hit:Crystal|undefined
-    let nearest=.76*.76
+    let nearest=1
+    let dealt=0
     for(const c of this.attacks.crystals) {
-      if(flatDistance(c.center,this.p)>4.5) continue
+      if(!volume && flatDistance(c.center,this.p)>4.5) continue
       this.crystalHitPoint.copy(c.center).y+=.88
-      const distance=this.strikeDistanceSquared(this.crystalHitPoint)
-      if(distance<nearest) { nearest=distance; hit=c }
+      const distance=volume?volume(this.crystalHitPoint,.76):this.strikeDistanceSquared(this.crystalHitPoint)/.76**2
+      if(distance>nearest) continue
+      if(area) dealt+=this.strikeCrystal(c,damage)
+      else { nearest=distance; hit=c }
     }
-    if(!hit || this.acceptBossDamage() && this.findStrike(this.monster)) return false
+    if(!hit || this.acceptBossDamage() && this.findStrike(this.monster,volume)) return dealt
+    return this.strikeCrystal(hit,damage)
+  }
+
+  private strikeCrystal(hit:Crystal,damage:number) {
+    const dealt=Math.min(hit.hp,damage)
     hit.hp-=damage
     this.crystalHitPoint.copy(hit.center).y+=.88
     this.fx.hit(this.crystalHitPoint,Math.round(damage),'結晶',0xc57fff,hit.hp<=0,false)
     if(hit.hp<=0) this.attacks.breakCrystal(hit,false)
-    return true
+    return dealt
   }
 
   protected override updateBoss(dt:number) {

@@ -1,14 +1,15 @@
 import type { MonsterData, WeaponData } from './config'
 import type { Battle } from './battle'
 import type { BattleMusic } from './battle-music'
+import { maxEnergy } from './flare/combat'
 import { clamp } from './math'
 import { bestClearTime } from './clear-times'
 import { difficulties, quests, questIcon, type Difficulty } from './quests'
 import { listScores, rankingTime, saveScore, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-export type Screen = 'loading' | 'title' | 'difficulty' | 'monsters' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings'
-export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'difficulty' | 'monsters' | 'rankings' | 'boss-rankings' | 'ranking-back'
+export type Screen = 'loading' | 'title' | 'hunters' | 'difficulty' | 'monsters' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings'
+export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'hunters' | 'difficulty' | 'monsters' | 'rankings' | 'boss-rankings' | 'ranking-back'
 export type Quality = 'low' | 'medium' | 'high'
 const qualityLabels: Record<Quality,string> = {low:'低',medium:'中',high:'高'}
 const clock = (seconds: number) => {
@@ -23,6 +24,12 @@ export class Interface {
   private touch=select('touch')
   private hp=select('hp')
   private stamina=select('stamina')
+  private flareStatus=select('flare-status')
+  private energy=select('energy')
+  private energyValue=select('energy-value')
+  private attackButton=document.querySelector<HTMLButtonElement>('[data-action="attack"]')!
+  private specialButton=document.querySelector<HTMLButtonElement>('[data-action="charge"]')!
+  private keyHint=select('key-hint')
   private bossName=select('boss-name')
   private bossHp=select('boss-hp')
   private callout=select('callout')
@@ -32,13 +39,14 @@ export class Interface {
   private current: Screen | null = null
   private cache = new Map<HTMLElement,string>()
 
-  constructor(private data: MonsterData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private chooseDifficulty: (level:Difficulty) => void, private choose: (id:string) => void, private music:BattleMusic) {
+  constructor(private data: MonsterData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private chooseDifficulty: (level:Difficulty) => void, private choose: (id:string) => void, private music:BattleMusic, private chooseHunter:(id:string)=>void) {
     document.documentElement.classList.toggle('coarse',coarse)
     this.panel.addEventListener('click',e => {
       const button=(e.target as HTMLElement).closest<HTMLButtonElement>('button')
       if (!button) return
       const level=difficulties.find(level=>String(level)===button.dataset.difficulty)
       if (level) this.chooseDifficulty(level)
+      if (button.dataset.hunter) this.chooseHunter(button.dataset.hunter)
       if (button.dataset.monster) this.choose(button.dataset.monster)
       if (button.dataset.cmd) this.send(button.dataset.cmd as Command)
       if (button.dataset.quality) {
@@ -61,6 +69,13 @@ export class Interface {
     document.body.dataset.screen=screen??'battle'
     this.hud.hidden=!!screen && screen!=='paused'
     this.touch.hidden=!!screen||!this.coarse
+    const flare=!!battle?.flare && (!screen || screen==='paused')
+    this.flareStatus.hidden=!flare
+    this.attackButton.textContent=flare?'魔弾':'斬撃'
+    this.specialButton.innerHTML=flare?'フレア':'溜め斬り<small>長押し</small>'
+    this.specialButton.classList.toggle('flare-button',flare)
+    this.specialButton.removeAttribute('aria-disabled')
+    this.keyHint.textContent=`WASD 移動　 J ${flare?'魔弾':'攻撃'}　 K ${flare?'フレア':'溜め'}　 Space 回避　 L ガード　 Q ロックオン`
     if (!screen) return
     const button = (cmd: Command, name: string, primary=false) => `<button class="${primary?'primary':'secondary'}" data-cmd="${cmd}">${name}${primary?'<span aria-hidden="true">→</span>':''}</button>`
     const settings = `<div class="options"><div class="settings"><span>画質</span><div role="group" aria-label="画質">${(Object.keys(qualityLabels) as Quality[]).map(q=>`<button data-quality="${q}" aria-pressed="${q===quality}">${qualityLabels[q]}</button>`).join('')}</div></div>
@@ -68,15 +83,22 @@ export class Interface {
     if (screen==='loading') this.panel.innerHTML='<div class="eyebrow">SHIOSAI HUNT</div><h1>潮鳴りの狩場</h1><p role="status">闘技場を読み込み中…</p><div class="loading-line"></div>'
     if (screen==='title') this.panel.innerHTML=`
       <div class="eyebrow">3D モンスター討伐</div><h1>潮鳴りの<br><em>狩場</em></h1>
-      <p class="title-note">大剣を手に、夕凪の石浜へ。</p>
-      <div class="menu-actions">${button('difficulty','討伐対象を選ぶ',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}</div>${settings}`
+      <p class="title-note">夕凪の石浜でモンスターを討伐する。</p>
+      <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}</div>${settings}`
     const icon = (quest: (typeof quests)[number]) => `<img class="quest-icon" src="${questIcon(quest)}" alt="">`
     const selected=quests.find(quest=>quest.monster.id===this.data.id)!
+    if (screen==='hunters') this.panel.innerHTML=`
+      <h2>キャラクターを選ぶ</h2>
+      <div class="difficulty-list">
+        <button class="secondary difficulty-button" data-hunter="greatsword"><strong>大剣</strong><span>ハンター</span></button>
+        <button class="secondary difficulty-button" data-hunter="flare"><strong>フレア</strong><span>魔法使い</span></button>
+      </div>
+      <div class="menu-actions">${button('title','戻る')}</div>`
     if (screen==='difficulty') this.panel.innerHTML=`
       <h2>難易度を選ぶ</h2>
       <div class="difficulty-list">${difficulties.map(level=>
         `<button class="secondary difficulty-button" data-difficulty="${level}"><strong>★${level}</strong><span>${['初級','中級','上級'][level-1]}</span></button>`).join('')}</div>
-      <div class="menu-actions">${button('title','戻る')}</div>`
+      <div class="menu-actions">${button('hunters','戻る')}</div>`
     if (screen==='monsters') this.panel.innerHTML=`
       <h2>★${difficulty}のモンスター</h2>
       <ul class="quest-list" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
@@ -120,11 +142,12 @@ export class Interface {
       <tr><th>視点</th><td>空いている画面を左右にスワイプ</td><td>マウスで左右にドラッグ</td></tr>
       <tr><th>攻撃</th><td>斬撃</td><td>J</td></tr>
       <tr><th>溜め攻撃</th><td>溜めを長押しして離す</td><td>K を長押しして離す</td></tr>
+      <tr><th>フレア</th><td>魔弾・フレア</td><td>J で魔弾 / K でフレア</td></tr>
       <tr><th>回避</th><td>回避</td><td>Space</td></tr>
       <tr><th>ガード</th><td>ガードを長押し</td><td>L を長押し</td></tr>
       <tr><th>ロックオン</th><td>照準</td><td>Q</td></tr>
       <tr><th>一時停止</th><td>右上の一時停止ボタン</td><td>Esc / P</td></tr></tbody></table></div>
-      <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。${this.coarse?' 横画面にすると周囲を見渡しやすい。':''}</p>
+      <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。${this.coarse?' 横画面にすると周囲を見渡しやすい。':''}</p>
       <div class="menu-actions">${button('back','戻る',true)}</div>`
     if (screen==='victory' || screen==='failure') this.panel.innerHTML=`
       <div class="eyebrow">${screen==='victory'?'QUEST CLEARED':'QUEST FAILED'}</div>
@@ -215,6 +238,14 @@ export class Interface {
     this.gauge(this.hp,b.hp,this.weapon.hp)
     this.gauge(this.stamina,Math.floor(b.stamina),this.weapon.stamina)
     this.write(this.bossName,b.monster.data.name)
+    if(b.flare) {
+      const energy=Math.floor(b.flare.energy)
+      const spell=b.flare.available
+      this.gauge(this.energy,energy,maxEnergy)
+      this.write(this.energyValue,`${energy} / ${maxEnergy}`)
+      this.write(this.specialButton,spell?.name??'フレア')
+      this.specialButton.setAttribute('aria-disabled',String(!spell))
+    }
     this.gauge(this.bossHp,b.bossHp,b.monster.data.hp)
     const notice=b.callout || (lock?'ロックオン中':'')
     const reverse=b.reverseMovement>0 ? `移動反転 ${Math.ceil(b.reverseMovement)}秒` : ''

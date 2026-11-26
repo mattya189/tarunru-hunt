@@ -4,10 +4,12 @@ import type { Arena } from './world'
 import type { Controls } from './input'
 import type { Effects } from './effects'
 import type { HunterModel, HunterPose } from './hunter'
+import { FlareCombat, type HitVolume } from './flare/combat'
+import type { FlareModel } from './flare/model'
 import { MonsterModel } from './monster-model'
 import { clamp, flatDistance, forward, pointSegmentSquared, smooth, wrap, yawTo } from './math'
 
-type FighterState = 'free' | 'swing' | 'charge' | 'dodge' | 'hit' | 'down' | 'rise'
+type FighterState = 'free' | 'cast' | 'swing' | 'charge' | 'dodge' | 'hit' | 'down' | 'rise'
 export type BossState = 'idle' | 'search' | 'approach' | 'turn' | 'windup' | 'attack' | 'recovery' | 'hit' | 'stagger' | 'fall' | 'rage' | 'defeat'
 
 export class Battle {
@@ -67,6 +69,23 @@ export class Battle {
   private hitPoint = new Vector3()
   private waveTime = 0
   private recoveryDuration = .8
+  private flareModel?: FlareModel
+  private magic?: FlareCombat
+  private magicOrigin = new Vector3()
+  private magicAim = new Vector3()
+
+  get flare() { return this.flareModel ? this.magic : undefined }
+  selectHunter(model?:FlareModel) {
+    this.flareModel?.root.removeFromParent()
+    this.magic?.reset()
+    this.flareModel=model
+    if(model) {
+      this.hunter.root.add(model.root)
+      this.magic ??= new FlareCombat()
+      this.magic.attach(this.fx.root)
+    }
+    this.hunter.showSword(!model)
+  }
 
   constructor(readonly monster: MonsterModel, readonly hunter: HunterModel, protected arena: Arena, protected fx: Effects, readonly weapon: WeaponData) {
     this.p = hunter.root.position
@@ -86,6 +105,7 @@ export class Battle {
     this.lastAttack=undefined; this.attack=undefined
     this.queued=this.charged=this.struck=this.attackLocked=this.attackHit=this.guard=false
     this.callout=''; this.reverseMovement=0; this.cooldowns={swipe:0,rush:1,spin:2,leap:3,special:6}
+    this.magic?.reset(); this.flareModel?.reset()
     this.fx.clear(); this.setPlayer('free'); this.setBoss('idle')
     this.hunter.root.rotation.y=this.playerYaw; this.hunter.pose('idle',0,0,0,0)
     this.monster.root.rotation.y=this.bossYaw; this.monster.setEnraged(false); this.monster.animate('idle',0)
@@ -94,7 +114,10 @@ export class Battle {
     if (this.outcome) {
       this.outcomeTime += dt
       if (this.outcome === 'victory') this.monster.animate('defeat',dt,clamp(this.outcomeTime/this.defeatDuration,0,1))
-      else this.hunter.pose('down',clamp(this.outcomeTime/.46,0,1),dt,0,0)
+      if(this.flareModel) {
+        this.magic!.stop()
+        this.flareModel.pose(this.outcome==='victory'?'Victory':'Death',dt)
+      } else if(this.outcome==='failure') this.hunter.pose('down',clamp(this.outcomeTime/.46,0,1),dt,0,0)
       return
     }
     this.elapsed += dt
@@ -107,7 +130,9 @@ export class Battle {
     this.reverseMovement=Math.max(0,this.reverseMovement-dt)
     this.updatePlayer(dt,input,viewYaw)
     this.updateBoss(dt)
-    this.strikeMonster()
+    if(this.flareModel) {
+      if(!this.outcome) this.magic!.tick(dt,this.arena,(volume,damage)=>this.strikeWithMagic(volume,damage))
+    } else this.strikeMonster()
   }
 
   get lockTarget() { return this.m }
@@ -133,6 +158,7 @@ export class Battle {
   private updatePlayer(dt: number,input: Controls,viewYaw: number) {
     input.movement(this.move)
     if(this.reverseMovement>0) { this.move.x*=-1; this.move.y*=-1 }
+    const magic=this.flare
     const attack=input.take('attack'), dodge=input.take('dodge'), charge=input.take('charge'), release=input.wasReleased('charge')
     const magnitude=Math.hypot(this.move.x,this.move.y)
     const dir=this.direction.set(-Math.cos(viewYaw)*this.move.x-Math.sin(viewYaw)*this.move.y,0,Math.sin(viewYaw)*this.move.x-Math.cos(viewYaw)*this.move.y)
@@ -157,8 +183,17 @@ export class Battle {
         const aim=this.lock ? angle : Math.atan2(dir.x,dir.z)
         this.playerYaw += wrap(aim-this.playerYaw)*Math.min(1,dt*16)
       }
-      if (!this.guard && attack && this.useStamina(5)) this.beginSwing(0,false)
-      else if (!this.guard && charge && this.useStamina(12)) this.setPlayer('charge')
+      const shot = attack || !!magic && input.held('attack')
+      const aimed = this.lock || Math.abs(wrap(angle-this.playerYaw))<.60
+      if (!this.guard && magic?.begin(shot,charge,this.elapsed,aimed)) {
+        if(aimed) this.playerYaw=angle
+        if(magic.cast?.spell) {
+          const { radius,release,color }=magic.cast.spell
+          this.fx.ring(this.p,radius,radius,release,color,.47)
+        }
+        this.setPlayer('cast')
+      } else if (!this.guard && !magic && attack && this.useStamina(5)) this.beginSwing(0,false)
+      else if (!this.guard && !magic && charge && this.useStamina(12)) this.setPlayer('charge')
       else {
         pose=this.guard?'guard':magnitude>.045?'run':'idle'
         this.moveEntity(this.p,dir,(this.guard?1.7:this.weapon.walk)*dt,.44,this.m,this.monster.data.radius)
@@ -201,12 +236,55 @@ export class Battle {
       if (phase>=1) this.setPlayer(pose==='down'?'rise':'free')
     }
     this.hunter.root.rotation.y=this.playerYaw
+    if(magic) {
+      const cast = magic.cast
+      if(this.playerState==='cast' && cast) {
+        this.flareModel!.pose(cast.clip,dt,this.pt)
+        const released=magic.release(this.pt)
+        if(released?.spell) {
+          const spell=released.spell
+          this.fx.ring(this.p,spell.radius*.95,spell.radius,.55,spell.color)
+          this.fx.ring(this.p,.3,spell.radius,.38,spell.color)
+          this.fx.burst(this.p,spell.color,true,spell.radius*.55)
+          this.strikeWithMagic((center)=>flatDistance(this.p,center)**2/spell.radius**2,spell.damage,spell.name)
+        } else if(released) {
+          this.flareModel!.hand.getWorldPosition(this.magicOrigin)
+          magic.launch(this.magicOrigin,this.playerYaw,released.aimed?this.magicLockPoint():undefined)
+        }
+        if(this.pt>=cast.duration) {
+          magic.cast=undefined
+          this.setPlayer('free')
+        }
+      } else {
+        magic.cast=undefined
+        const clip = { idle:'Idle',run:'Run',guard:'Guard',dodge:'Dodge',hit:'Hit',down:'Hit',rise:'Idle',swing:'Idle',charge:'Idle' }[pose]
+        this.flareModel!.pose(clip,dt,pose==='dodge'?phase*.65:undefined)
+      }
+      return
+    }
     this.hunter.pose(pose,phase,dt,this.combo,magnitude)
     this.previousA.copy(this.bladeA); this.previousB.copy(this.bladeB)
     this.hunter.blade(this.bladeA,this.bladeB)
     if (pose==='swing' && phase>.98 && phase<1.99) this.fx.blade(this.bladeA,this.bladeB,this.charged && this.power>1)
     else this.fx.endBlade()
   }
+  protected magicLockPoint() {
+    return this.magicAim.copy(this.monster.parts[0].center)
+  }
+
+  private strikeWithMagic(volume:HitVolume,damage:number,spell?:string) {
+    if(this.outcome) return -1
+    const best=this.findStrike(this.monster,volume)
+    const blocked=spell && best && !this.acceptBossDamage()
+    const secondary=this.strikeSecondary(damage,volume,!!spell)
+    if(!spell && secondary) return secondary
+    if(!best) return secondary || -1
+    if(blocked || !spell && !this.acceptBossDamage()) return secondary
+    const dealt=Math.min(this.bossHp,damage)
+    this.applyMonsterHit(best,damage,spell??'エネルギーショット',spell?0xff9537:0xffb070,.40)
+    return dealt
+  }
+
   private startDodge(direction: Vector3, magnitude: number) {
     this.setPlayer('dodge')
     if (magnitude>.13) this.roll.copy(direction).normalize()
@@ -228,10 +306,15 @@ export class Battle {
     this.struck=true
     const damage=Math.round(s.damage*this.power*best.config.multiplier)
     if (!this.acceptBossDamage()) return
+    this.applyMonsterHit(best,damage)
+  }
+
+  private applyMonsterHit(best:MonsterModel['parts'][number],damage:number,name=best.config.name,color=0xffce79,staggerScale=1) {
     this.bossHp=Math.max(0,this.bossHp-damage)
-    this.poise+=damage*best.config.stagger
-    if (best.config.bone===this.monster.data.rig?.leftLeg || best.config.bone===this.monster.data.rig?.rightLeg) this.legDamage+=damage*best.config.stagger
-    this.fx.hit(best.center,damage,best.config.name,0xffce79,damage>=88,false)
+    const stagger=damage*best.config.stagger*staggerScale
+    this.poise+=stagger
+    if (best.config.bone===this.monster.data.rig?.leftLeg || best.config.bone===this.monster.data.rig?.rightLeg) this.legDamage+=stagger
+    this.fx.hit(best.center,damage,name,color,damage>=88,false)
     if (this.bossHp===0) {
       this.setBoss('defeat'); this.outcome='victory'; this.callout='討伐完了'; return
     }
@@ -247,19 +330,19 @@ export class Battle {
     }
   }
 
-  protected strikeSecondary(_damage:number) { return false }
+  protected strikeSecondary(_damage:number,_volume?:HitVolume,_area=false) { return 0 }
   protected acceptBossDamage() { return true }
 
-  protected findStrike(monster:MonsterModel) {
-    if(flatDistance(this.p,monster.root.position)>5) return
+  protected findStrike(monster:MonsterModel,volume?:HitVolume) {
+    if(!volume && flatDistance(this.p,monster.root.position)>5) return
     let best: MonsterModel['parts'][number] | undefined
     let bestScore=Infinity
     for(const part of monster.parts) {
       const center=part.center
       const radius=part.config.radius*monster.data.scale+.18
-      const d2=this.strikeDistanceSquared(center)
-      const score=d2/(radius*radius) - (part.config.multiplier-1)*.32
-      if (d2 <= radius*radius && score < bestScore) { best=part; bestScore=score }
+      const contact=volume?volume(center,radius):this.strikeDistanceSquared(center)/(radius*radius)
+      const score=contact - (volume?0:(part.config.multiplier-1)*.32)
+      if (contact <= 1 && score < bestScore) { best=part; bestScore=score }
     }
     return best
   }
