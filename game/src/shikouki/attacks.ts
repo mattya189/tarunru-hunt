@@ -1,7 +1,7 @@
 import { Vector3 } from 'three'
 import type { Motion } from '../config'
 import { clamp, flatDistance, yawTo } from '../math'
-import { crystal, moves, phases, shikouki, type MoveId } from './config'
+import { crystal, damageScale, moves, phases, shikouki, type MoveId } from './config'
 
 export interface Hazard {
   origin: Vector3
@@ -12,6 +12,7 @@ export interface Hazard {
   width: number
   arc: number
   damage: number
+  scale: DamageScale
   at: number
   end: number
   live: boolean
@@ -36,10 +37,12 @@ interface Action {
   travel?: { from: Vector3; to: Vector3; start: number; end: number }
   chargeHit: boolean
 }
+type DamageScale=typeof damageScale[keyof typeof damageScale]
+
 interface Ports {
   ground: (x: number, z: number) => number
   resolve: (point: Vector3) => void
-  damage: (damage: number, source: Vector3, knockdown: boolean) => boolean
+  damage: (damage: number, source: Vector3, knockdown: boolean, scale: DamageScale) => boolean
   ring: (point: Vector3, size: number, color: number) => void
 }
 const tau = Math.PI * 2
@@ -58,7 +61,7 @@ export function overlaps(
   return distance<=radius || (distance<=h.radius+radius && Math.atan2(side,forward)<=h.arc+Math.asin(radius/distance))
 }
 const footprint = (origin:Vector3, shape:Hazard['shape'], extras:Partial<Hazard>={}) => ({
-  origin,shape,angle:0,radius:0,length:0,width:0,arc:0,damage:0,at:0,end:0,live:false,hit:false,...extras,
+  origin,shape,angle:0,radius:0,length:0,width:0,arc:0,damage:0,scale:damageScale.melee,at:0,end:0,live:false,hit:false,...extras,
 })
 
 export class ShikoukiAttacks {
@@ -103,12 +106,12 @@ export class ShikoukiAttacks {
     this.hazards=this.hazards.filter(h=>this.time<h.end)
     this.crystals=this.crystals.filter(c=>this.time<c.end)
     for(const c of this.crystals) {
-      if(flatDistance(c.center,player)<=1.32) this.ports.damage(7*phases[this.phase].power,c.center,false)
+      if(flatDistance(c.center,player)<=1.32) this.ports.damage(7*phases[this.phase].power,c.center,false,damageScale.crystal)
     }
     for(const s of this.shots) {
       const length=s.speed*dt
       if(overlaps(footprint(s.center,'box',{ angle:s.angle,length,width:.24 }),player,bodyRadius)
-        && this.ports.damage(s.damage,s.center,false)) s.end=this.time
+        && this.ports.damage(s.damage,s.center,false,damageScale.crystal)) s.end=this.time
       s.center.x+=Math.sin(s.angle)*length
       s.center.z+=Math.cos(s.angle)*length
       s.center.y=this.ports.ground(s.center.x,s.center.z)+.68
@@ -209,21 +212,21 @@ export class ShikoukiAttacks {
       case 'crystal_summon':
         for(let i=0;i<5;i++) {
           const center=this.crystalPoint(target,i,2.75+(i%2)*1.45,1.4)
-          warn(.12+i*.07,1.12+i*.07,ring(center,.96,12,{pillar:true}))
+          warn(.12+i*.07,1.12+i*.07,ring(center,.96,12,{pillar:true,scale:damageScale.crystal}))
         }
         break
       case 'beam': {
         const c=this.crystals.filter(c=>flatDistance(c.center,origin)<20 && flatDistance(c.center,origin)>2)
           .sort((a,b)=>flatDistance(a.center,target)-flatDistance(b.center,target))[0]
         if(c && flatDistance(c.center,target)<8) this.angle=yawTo(origin,c.center)
-        warn(0,1.23,line(29,.65,22,{angle:this.angle,beam:true,split:true}),.55/rate)
+        warn(0,1.23,line(29,.65,22,{angle:this.angle,beam:true,split:true,scale:damageScale.heavy}),.55/rate)
         break
       }
       case 'dive': {
         event(1.3,()=>{ action.motion='shikoukiHover' })
         event(2.2,()=>{ action.motion='leap' })
         this.ports.resolve(target)
-        warn(1.3,3.6,ring(target,4.65,21,{shock:true}),.24)
+        warn(1.3,3.6,ring(target,4.65,21,{shock:true,scale:damageScale.heavy}),.24)
         action.travel={from:origin,to:target,start:2.2,end:3.6}
         break
       }
@@ -233,16 +236,16 @@ export class ShikoukiAttacks {
         let landing=target
         for(let i=0;i<48;i++) {
           const center=this.crystalPoint(new Vector3(),i,3+Math.sqrt(i)*2.62,1.25)
-          warn(2+i/20,2.65+i/20,ring(center,.91,10,{pillar:true}))
+          warn(2+i/20,2.65+i/20,ring(center,.91,10,{pillar:true,scale:damageScale.crystal}))
         }
-        for(let i=0;i<2;i++) warn(4.12,5,line(47,.57,16,{angle:aim+i*Math.PI,beam:true,rotate:.91}),2.9)
+        for(let i=0;i<2;i++) warn(4.12,5,line(47,.57,16,{angle:aim+i*Math.PI,beam:true,rotate:.91,scale:damageScale.heavy}),2.9)
         for(let wave=0;wave<3;wave++) event(5+wave,()=>{
           for(let n=0;n<24;n++) this.fire(origin,n*tau/24+wave*.14,11.7,9)
         })
         event(8,()=>{
           landing=player.clone(); this.ports.resolve(landing)
           this.callout='紫煌天獄 · 着地点から離れろ'
-          this.addHazard(ring(landing,7.1,28,{shock:true}),2,.30)
+          this.addHazard(ring(landing,7.1,28,{shock:true,scale:damageScale.ultimateImpact}),2,.30)
         })
         event(8.6,()=>{
           action.motion='leap'
@@ -278,7 +281,7 @@ export class ShikoukiAttacks {
       this.ports.resolve(this.boss)
       if(a.id==='charge' && !a.chargeHit && overlaps(footprint(this.previous,'box',{
         angle:yawTo(this.previous,this.boss),length:flatDistance(this.previous,this.boss),width:1.45,
-      }),player,bodyRadius)) a.chargeHit=this.ports.damage(22*phases[this.phase].power,this.boss,true)
+      }),player,bodyRadius)) a.chargeHit=this.ports.damage(22*phases[this.phase].power,this.boss,true,damageScale.heavy)
     }
     this.motion=a.motion
     this.progress=this.poseProgress(a)
@@ -329,7 +332,7 @@ export class ShikoukiAttacks {
           .sort((a,b)=>flatDistance(h.origin,a.center)-flatDistance(h.origin,b.center))[0]
         if(c) {
           for(const turn of [-.57,.57]) this.addHazard(footprint(c.center,'box',{
-            angle:h.angle+turn,length:16,width:.45,damage:13,beam:true,
+            angle:h.angle+turn,length:16,width:.45,damage:13,beam:true,scale:damageScale.heavy,
           }),.38,.47)
           this.callout='結晶共鳴 · 光線が分岐'
           this.ports.ring(c.center,2.2,0xba6dff)
@@ -338,7 +341,7 @@ export class ShikoukiAttacks {
       if(h.shock) this.ports.ring(h.origin,h.radius,0xe883fa)
     } else if(h.rotate) h.angle+=h.rotate*dt
     if(h.hit || !h.damage || !overlaps(h,player,bodyRadius)) return
-    h.hit=this.ports.damage(h.damage,h.origin,!!h.shock)
+    h.hit=this.ports.damage(h.damage,h.origin,!!h.shock,h.scale)
   }
 
   private crystalPoint(center:Vector3, i:number, radius:number, margin:number) {
@@ -351,7 +354,7 @@ export class ShikoukiAttacks {
 
   breakCrystal(c:Crystal, explode:boolean) {
     this.crystals=this.crystals.filter(item=>item!==c)
-    if(explode) this.addHazard(footprint(c.center,'circle',{radius:1.55,damage:9}),.38,.16)
+    if(explode) this.addHazard(footprint(c.center,'circle',{radius:1.55,damage:9,scale:damageScale.crystal}),.38,.16)
     else this.ports.ring(c.center,1.7,0xc574ff)
   }
 
