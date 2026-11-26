@@ -4,8 +4,10 @@ const apiKey='sb_publishable_DFU6z0RkXapoX8w_K_UnaQ_dPIDQTze'
 const playerKey='shiosai-ranking-player'
 let player:string|undefined
 
+export type HunterId = 'greatsword' | 'flare'
+
 export interface RankingEntry {nickname:string; time_ms:number}
-export interface RankingRun {boss:string; player:string; ticket:string}
+export interface RankingRun {boss:string; hunter:HunterId; player:string; ticket:string}
 export interface RankingSave {time_ms:number; personal_best:boolean}
 
 async function rpc<T>(operation:string, body:Record<string,string>):Promise<T> {
@@ -21,19 +23,19 @@ async function rpc<T>(operation:string, body:Record<string,string>):Promise<T> {
   } finally { clearTimeout(timeout) }
 }
 
-export function listScores(boss:string) {
-  return rpc<RankingEntry[]>('list_scores',{p_boss:boss})
+export function listScores(boss:string,hunter:HunterId) {
+  return rpc<RankingEntry[]>('list_scores',{p_boss:boss,p_hunter:hunter})
 }
-export async function beginRun(boss:string):Promise<RankingRun> {
+export async function beginRun(boss:string,hunter:HunterId):Promise<RankingRun> {
   if(!player) {
     try { player=localStorage.getItem(playerKey)??undefined } catch { /* Private storage may be blocked. */ }
     if(!player || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(player)) player=crypto.randomUUID()
     try { localStorage.setItem(playerKey,player) } catch { /* Keep the current session playable. */ }
   }
-  const ticket=await rpc<string>('begin_run',{p_boss:boss,p_player:player})
-  return {boss,player,ticket}
+  const ticket=await rpc<string>('begin_run',{p_boss:boss,p_hunter:hunter,p_player:player})
+  return {boss,hunter,player,ticket}
 }
-function runArgs(run:RankingRun) { return {p_boss:run.boss,p_player:run.player,p_ticket:run.ticket} }
+function runArgs(run:RankingRun) { return {p_boss:run.boss,p_hunter:run.hunter,p_player:run.player,p_ticket:run.ticket} }
 export function finishRun(run:RankingRun) { return rpc<number>('finish_run',runArgs(run)) }
 export async function saveScore(run:RankingRun,nickname:string) {
   const [score]=await rpc<RankingSave[]>('save_score',{...runArgs(run),p_nickname:nickname})
