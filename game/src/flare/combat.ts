@@ -16,6 +16,9 @@ export type HitVolume = (center:Vector3,radius:number)=>number
 
 const shotRange = 8
 const shotSpeed = 25
+const shotFullDamageRange = 2
+const shotMaxDamage = 40
+const shotMinDamage = 1
 
 export class FlareCombat {
   energy = 0
@@ -84,7 +87,8 @@ export class FlareCombat {
       this.shot.visible=false
       return
     }
-    const damage=Math.round(40-10*clamp((this.traveled-2)/(shotRange-2),0,1))
+    const falloff=clamp((this.traveled-shotFullDamageRange)/(shotRange-shotFullDamageRange),0,1)
+    const damage=Math.round(shotMaxDamage-(shotMaxDamage-shotMinDamage)*falloff)
     const dealt=hit((center,radius)=>pointSegmentSquared(center,this.previous,p)/(radius+.19)**2,damage)
     if(dealt>=0 || this.traveled>=shotRange) this.shot.visible=false
     if(dealt>0) this.energy=Math.min(maxEnergy,this.energy+dealt*.375)
