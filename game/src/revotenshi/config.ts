@@ -32,6 +32,7 @@ export const combat = {
 export const minion: MonsterData = {
   ...revotenshi, hp:Math.round(revotenshi.hp*combat.minionHpRatio),
   scale:revotenshi.scale*combat.minionScale, radius:.45,
+  parts: revotenshi.parts.map(part=>({...part,radius:part.radius*2.5})),
 }
 
 function eventTime(clip: keyof typeof animation.events, name: string) {
