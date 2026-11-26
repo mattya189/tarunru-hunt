@@ -446,16 +446,22 @@ export class Battle {
   protected damagePlayer(
     a: Pick<Attack,'damage' | 'knockdown'>, source: Vector3,
     multiplier = this.monster.data.power*(this.rage?1.1:1), damageScale = 1,
+    guardEffect?: { damageScale: number; push: number },
   ) {
     if (this.immune>0 || this.playerState==='rise' || this.playerState==='down' || (this.playerState==='dodge' && this.pt>=.065 && this.pt<=.34)) return false
     const toward=yawTo(this.p,source), guarded=this.guard && Math.abs(wrap(toward-this.playerYaw))<=1.30 && this.useStamina(a.knockdown?23:15)
-    const damage=Math.max(1,Math.round(a.damage*multiplier*(guarded?.24:1)))*damageScale
+    const damage=guarded && guardEffect
+      ? Math.round(a.damage*multiplier*guardEffect.damageScale)*damageScale
+      : Math.max(1,Math.round(a.damage*multiplier*(guarded?.24:1)))*damageScale
     this.hp=Math.max(0,this.hp-damage)
     this.immune=guarded?.28:a.knockdown?1.27:.56
     if(!guarded) {
       this.dodgeBuffer=0
       this.setPlayer(a.knockdown?'down':'hit')
       forward(toward+Math.PI,this.shove)
+    } else if (guardEffect?.push) {
+      forward(toward+Math.PI,this.shove)
+      this.moveEntity(this.p,this.shove,guardEffect.push,.44,this.m,this.monster.data.radius)
     }
     this.hitPoint.copy(this.p); this.hitPoint.y+=1.55
     this.fx.hit(this.hitPoint,damage,guarded?'防御':'',guarded?0xffdb9b:0xff7f69,a.knockdown&&!guarded,true)
