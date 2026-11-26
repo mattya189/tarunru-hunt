@@ -66,6 +66,8 @@ thead { color: var(--gold); }
 .ranking-field { max-width:100%; min-height:44px; padding:8px 10px; font:inherit; font-size:16px; color:var(--paper); background:#252d24; border:1px solid #dbca947f; }
 select.ranking-field { display:block; margin-top:7px; }
 input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-select:text; }
+.ranking-hunters { margin-top:12px; }
+.ranking-hunters button { min-height:44px; }
 .ranking-note { margin:8px 0 14px; }
 .ranking-table { margin:10px 0 16px; table-layout:fixed; }
 .ranking-table th:first-child { width:3rem; }

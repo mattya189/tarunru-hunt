@@ -9,7 +9,7 @@ import { FlareModel } from './flare/model'
 import { HunterModel } from './hunter'
 import { Controls } from './input'
 import { MonsterModel } from './monster-model'
-import { beginRun, finishRun, type RankingRun } from './rankings'
+import { beginRun, finishRun, type HunterId, type RankingRun } from './rankings'
 import { recordClearTime } from './clear-times'
 import { quests, type Difficulty } from './quests'
 import { Interface, type Command, type Quality, type Screen } from './ui'
@@ -41,7 +41,7 @@ let helpFrom: Screen='title'
 let rankingFrom: 'title' | 'quest' | 'victory'='title'
 let difficulty: Difficulty=1
 let selectedMonster=tidebeast
-let selectedHunter:'greatsword'|'flare'='greatsword'
+let selectedHunter:HunterId='greatsword'
 let flareModel:FlareModel|undefined
 let huntStarted: number | undefined
 let renderer: WebGLRenderer
@@ -76,7 +76,7 @@ function switchTo(next: Screen | null) {
   dirty=true
   reticle.hidden=true
   if(battle) battle.monster.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='boss-rankings' && next!=='rankings'
-  ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty)
+  ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty,next==='rankings' && rankingFrom==='title'?'greatsword':selectedHunter)
 }
 async function loadBattle(data:MonsterData) {
   const cached=battles.get(data.id)
@@ -144,7 +144,7 @@ async function startHunt() {
     }
     battle.selectHunter(model)
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
-    rankingRun=await beginRun(battle.monster.data.id).catch(()=>undefined)
+    rankingRun=await beginRun(battle.monster.data.id,selectedHunter).catch(()=>undefined)
     rankingResult=undefined
     battle.reset(); camera.reset(battle)
     huntStarted=performance.now()
@@ -218,7 +218,7 @@ function frame(now: number) {
     }
     if(battle.outcome) music.pause()
     if(battle.outcome==='victory' && huntStarted!==undefined) {
-      recordClearTime(battle.monster.data.id,Math.max(1,Math.round(performance.now()-huntStarted)))
+      recordClearTime(battle.monster.data.id,selectedHunter,Math.max(1,Math.round(performance.now()-huntStarted)))
       huntStarted=undefined
     }
     if(battle.outcome==='victory' && rankingRun && !rankingResult) {
