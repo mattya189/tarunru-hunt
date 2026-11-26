@@ -1,6 +1,7 @@
 import { AnimationAction, AnimationClip, AnimationMixer, Color, Euler, Group, LoopOnce, LoopRepeat, Mesh, MeshStandardMaterial, Object3D, Quaternion, QuaternionKeyframeTrack, Vector3, VectorKeyframeTrack, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import type { MonsterData, Motion } from './config'
+import { batchRigidMeshes } from './rigid-meshes'
 
 type Pose = [number, number, number, number, number, number, number]
 type Parts = { config: MonsterData['parts'][number]; bone: Object3D; local: Vector3; center: Vector3 }
@@ -60,11 +61,12 @@ export class MonsterModel {
     this.visual.scale.setScalar(data.scale)
     this.visual.position.y=data.footOffset*data.scale
     this.visual.rotation.y = data.yawOffset
+    if(data.rigidMeshes) batchRigidMeshes(asset,clips)
     const bones: string[] = []
     asset.traverse(object => {
       if (object instanceof Mesh) {
-        this.support.push({mesh:object,indices:contactVertices(object)})
-        object.castShadow = true
+        if(!data.rigidMeshes) this.support.push({mesh:object,indices:contactVertices(object)})
+        object.castShadow = !data.rigidMeshes
         object.receiveShadow = false
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
           if (material instanceof MeshStandardMaterial && !this.materials.has(material)) {

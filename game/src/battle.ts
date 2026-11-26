@@ -111,6 +111,7 @@ export class Battle {
   }
 
   get lockTarget() { return this.m }
+  get rageLabel() { return '怒り' }
   get defeatDuration() { return 1.65 }
 
   private setPlayer(state: FighterState) { this.playerState=state; this.pt=0 }
@@ -256,15 +257,19 @@ export class Battle {
     for(const part of monster.parts) {
       const center=part.center
       const radius=part.config.radius*monster.data.scale+.18
-      const d2=Math.min(
-        pointSegmentSquared(center,this.bladeA,this.bladeB),
-        pointSegmentSquared(center,this.previousA,this.previousB),
-        pointSegmentSquared(center,this.previousB,this.bladeB),
-      )
+      const d2=this.strikeDistanceSquared(center)
       const score=d2/(radius*radius) - (part.config.multiplier-1)*.32
       if (d2 <= radius*radius && score < bestScore) { best=part; bestScore=score }
     }
     return best
+  }
+
+  protected strikeDistanceSquared(point: Vector3) {
+    return Math.min(
+      pointSegmentSquared(point,this.bladeA,this.bladeB),
+      pointSegmentSquared(point,this.previousA,this.previousB),
+      pointSegmentSquared(point,this.previousB,this.bladeB),
+    )
   }
 
   protected canInterruptBoss() { return true }

@@ -17,9 +17,11 @@ import { SabotBattle } from './sabottenanbon/battle'
 import { BreathBloom } from './sabottenanbon/bloom'
 import { RevotenshiBattle } from './revotenshi/battle'
 import { minion, revotenshi } from './revotenshi/config'
+import { ShikoukiBattle } from './shikouki/battle'
+import { shikouki } from './shikouki/config'
 import './style.css'
 
-const roster=[tidebeast,sabottenanbon,sabottenanbonOvergrowth,revotenshi]
+const roster=[tidebeast,sabottenanbon,sabottenanbonOvergrowth,revotenshi,shikouki]
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
 const music=new BattleMusic()
@@ -80,6 +82,10 @@ async function loadBattle(data:MonsterData) {
     const clones=await Promise.all([MonsterModel.load(minion),MonsterModel.load(minion)])
     const encounter=new RevotenshiBattle(monster,hunter,arena,fx,greatsword)
     encounter.attach(scene,clones)
+    next=encounter
+  } else if(data.id===shikouki.id) {
+    const encounter=new ShikoukiBattle(monster,hunter,arena,fx,greatsword)
+    scene.add(encounter.visuals.root)
     next=encounter
   } else next=new Battle(monster,hunter,arena,fx,greatsword)
   battles.set(data.id,next)
@@ -174,7 +180,9 @@ function frame(now: number) {
     camera.update(dt,battle,lookX,fx.shake)
     fx.update(dt,p=>p.project(camera.camera))
     if(battle.lock&&!battle.outcome) {
-      if(battle instanceof SabotBattle) {
+      if(battle instanceof ShikoukiBattle) {
+        lockPoint.copy(battle.monster.parts[0].center)
+      } else if(battle instanceof SabotBattle) {
         lockPoint.copy(battle.monster.parts[0].center)
         lockPoint.y+=.60
       } else if(battle instanceof RevotenshiBattle) {
@@ -197,7 +205,7 @@ function frame(now: number) {
   const moving=screen===null||screen==='title'||screen==='quest'||screen==='help'&&helpFrom==='title'
   if (dirty||moving) {
     hunterShadow.follow(battle.p,.64)
-    bossShadow.follow(battle.m,battle.bossState==='attack' && battle.callout==='跳躍プレス'?.46:.72)
+    bossShadow.follow(battle.m,battle instanceof ShikoukiBattle ? 1.18 : battle.bossState==='attack' && battle.callout==='跳躍プレス'?.46:.72)
     if (quality!=='low'||frameCount++%2===0||dirty) renderer.shadowMap.needsUpdate=true
     const runtime=battle instanceof SabotBattle?battle.attacksRuntime:undefined
     if(quality!=='low' && runtime?.glowing && renderer.extensions.has('EXT_color_buffer_float')) {
