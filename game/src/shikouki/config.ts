@@ -13,7 +13,7 @@ export const shikouki: MonsterData = {
   rigidMeshes: true,
   ai: { wake: 24, turnSpeed: 7.2, stagger: 220, topple: 410, enabledAttacks: [] },
   motions: {
-    idle: { clip: 'idle' }, walk: { clip: 'walk', speed: .85 }, run: { clip: 'run' },
+    idle: { clip: 'idle' }, walk: { clip: 'walk' },
     hit: { clip: 'hit' }, stagger: { clip: 'hit' }, fall: { clip: 'down' }, defeat: { clip: 'death' },
     swipe: { clip: 'slash_horizontal' }, shikoukiPierce: { clip: 'leg_pierce' },
     rush: { clip: 'charge' }, spin: { clip: 'wing_spin' }, shikoukiBarrage: { clip: 'wing_barrage' },
@@ -33,15 +33,15 @@ export const phases = [
 export const crystal = { hp: 95, life: 13, limit: 48 }
 
 export const moves = {
-  slash_horizontal: { label: '水平斬撃', clip: 1.2, cooldown: 3.2, recovery: 1.40, motion: 'swipe' },
-  leg_pierce: { label: '連続穿刺', clip: 2.4, cooldown: 6, recovery: 1.36, motion: 'shikoukiPierce' },
-  charge: { label: '四脚突進', clip: 1.5, cooldown: 7, recovery: 11.26, motion: 'rush' },
-  wing_spin: { label: '翼回転斬撃', clip: 1.5, cooldown: 8, recovery: 1.62, motion: 'spin' },
-  wing_barrage: { label: '結晶弾幕', clip: 2, cooldown: 9, recovery: 1.45, motion: 'shikoukiBarrage' },
-  crystal_summon: { label: '結晶生成', clip: 2, cooldown: 14, recovery: 1.26, motion: 'summon' },
-  beam: { label: '紫煌光線', clip: 2.5, cooldown: 11, recovery: 1.80, motion: 'beamFire' },
-  dive: { label: '飛翔急降下', clip: 3.6, cooldown: 16, recovery: 11.26, motion: 'shikoukiTakeoff' },
-  ultimate: { label: '紫煌天獄', clip: 12, cooldown: Infinity, recovery: 3.2, motion: 'special' },
+  slash_horizontal: { label: '水平斬撃', clip: 1.2, cooldown: 3.2, recovery: 1.04, motion: 'swipe' },
+  leg_pierce: { label: '連続穿刺', clip: 2.4, cooldown: 6, recovery: 1.02, motion: 'shikoukiPierce' },
+  charge: { label: '四脚突進', clip: 1.5, cooldown: 7, recovery: 1.24, motion: 'rush' },
+  wing_spin: { label: '翼回転斬撃', clip: 1.5, cooldown: 8, recovery: 1.22, motion: 'spin' },
+  wing_barrage: { label: '結晶弾幕', clip: 2, cooldown: 9, recovery: 1.10, motion: 'shikoukiBarrage' },
+  crystal_summon: { label: '結晶生成', clip: 2, cooldown: 14, recovery: .96, motion: 'summon' },
+  beam: { label: '紫煌光線', clip: 2.5, cooldown: 11, recovery: 1.34, motion: 'beamFire' },
+  dive: { label: '飛翔急降下', clip: 3.6, cooldown: 16, recovery: 1.38, motion: 'shikoukiTakeoff' },
+  ultimate: { label: '紫煌天獄', clip: 12, cooldown: Infinity, recovery: 1.5, motion: 'special' },
 } satisfies Record<string,{ label: string; clip: number; cooldown: number; recovery: number; motion: Motion }>
 
 export type MoveId = keyof typeof moves
