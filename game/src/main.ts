@@ -21,6 +21,8 @@ import { RevotenshiBattle } from './revotenshi/battle'
 import { minion, revotenshi } from './revotenshi/config'
 import { ShikoukiBattle } from './shikouki/battle'
 import { shikouki } from './shikouki/config'
+import { KogobonBattle } from './kogobon/battle'
+import { kogobon } from './kogobon/config'
 import './style.css'
 
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
@@ -92,6 +94,10 @@ async function loadBattle(data:MonsterData) {
   } else if(data.id===shikouki.id) {
     const encounter=new ShikoukiBattle(monster,hunter,arena,fx,greatsword)
     scene.add(encounter.visuals.root)
+    next=encounter
+  } else if(data.id===kogobon.id) {
+    const encounter=new KogobonBattle(monster,hunter,arena,fx,greatsword)
+    scene.add(encounter.warning)
     next=encounter
   } else next=new Battle(monster,hunter,arena,fx,greatsword)
   battles.set(data.id,next)
@@ -206,7 +212,7 @@ function frame(now: number) {
     camera.update(dt,battle,lookX,fx.shake)
     fx.update(dt,p=>p.project(camera.camera))
     if(battle.lock&&!battle.outcome) {
-      if(battle instanceof ShikoukiBattle) {
+      if(battle instanceof ShikoukiBattle || battle instanceof KogobonBattle) {
         lockPoint.copy(battle.monster.parts[0].center)
       } else if(battle instanceof SabotBattle) {
         lockPoint.copy(battle.monster.parts[0].center)

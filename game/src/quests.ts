@@ -1,4 +1,5 @@
 import { tidebeast, type MonsterData } from './config'
+import { kogobon } from './kogobon/config'
 import { revotenshi } from './revotenshi/config'
 import { sabottenanbon, sabottenanbonOvergrowth } from './sabottenanbon/config'
 import { shikouki } from './shikouki/config'
@@ -23,6 +24,15 @@ export const quests: readonly HuntQuest[] = [
       '棘を構えたら、正面から横へ移動して射線を外す。避けたあとに一発ずつ斬り込もう。',
       '怒っている間のブレスは口の向きに追従する。構えを見たら早めに側面へ回る。',
       '足元に爆発の予兆が出たら範囲外へ。棘の一斉爆発が終わったあとは、近づいて反撃しやすい。',
+    ],
+  },
+  {
+    monster: kogobon, name: kogobon.name, difficulty: 1, icon: 'kogobon',
+    attacks: '咆哮、叩きつけ、跳び込み',
+    advice: [
+      '咆哮はコウゴボンの方を向いてガードするか、扇形の横へ抜ける。ガードできればHPは減らない。',
+      '叩きつけは円の外へ歩き、跳び込みは着地点の予告を見て横へ回避。攻撃が終わったら反撃しよう。',
+      '攻撃を3回出すたびに5秒間息切れする。落ち着いて近づいて大剣を振ろう。',
     ],
   },
   {
