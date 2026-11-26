@@ -214,3 +214,10 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 .quest-guide ul { margin:0; padding:0 13px 11px 30px; line-height:1.55; color:#e7ddc4; font-size:.83rem; }
 .quest-guide li+li { margin-top:5px; }
 .quest-rankings { margin-top:8px; gap:6px; }
+
+#flare-status:not([hidden]) { display:flex; align-items:center; gap:6px; }
+#flare-status .energy { flex:1; height:7px; }
+#energy-value { font-size:10px; font-weight:800; color:#ffe0d6; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.gauge.energy i { background:linear-gradient(90deg,#dd465a,#ffb05e); }
+#touch .actions .flare-button { background:#802a39f5; border-color:#ffae91; }
+#touch .actions .flare-button[aria-disabled="true"] { opacity:.60; }

@@ -5,6 +5,7 @@ import { HuntCamera } from './camera'
 import { ContactShadow } from './contact'
 import { coast, greatsword, tidebeast, type MonsterData } from './config'
 import { Effects } from './effects'
+import { FlareModel } from './flare/model'
 import { HunterModel } from './hunter'
 import { Controls } from './input'
 import { MonsterModel } from './monster-model'
@@ -40,6 +41,8 @@ let helpFrom: Screen='title'
 let rankingFrom: 'title' | 'quest' | 'victory'='title'
 let difficulty: Difficulty=1
 let selectedMonster=tidebeast
+let selectedHunter:'greatsword'|'flare'='greatsword'
+let flareModel:FlareModel|undefined
 let huntStarted: number | undefined
 let renderer: WebGLRenderer
 let scene: Scene
@@ -56,7 +59,7 @@ let hunterShadow: ContactShadow, bossShadow: ContactShadow
 let dirty=true, frameCount=0
 let latest=performance.now(), titleTime=0, accumulator=0, uiTimer=0
 const step=1/60
-const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,music)
+const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,music,chooseHunter)
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')
 const lockPoint=new Vector3()
@@ -72,7 +75,7 @@ function switchTo(next: Screen | null) {
   accumulator=0
   dirty=true
   reticle.hidden=true
-  if(battle) battle.monster.root.visible=next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='boss-rankings' && next!=='rankings'
+  if(battle) battle.monster.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='boss-rankings' && next!=='rankings'
   ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty)
 }
 async function loadBattle(data:MonsterData) {
@@ -103,6 +106,11 @@ async function loadBattle(data:MonsterData) {
   battles.set(data.id,next)
   return next
 }
+function chooseHunter(value:string) {
+  if(screen!=='hunters' || (value!=='greatsword' && value!=='flare')) return
+  selectedHunter=value
+  switchTo('difficulty')
+}
 function chooseDifficulty(level:Difficulty) {
   if(screen!=='difficulty') return
   difficulty=level
@@ -122,13 +130,19 @@ async function startHunt() {
   // Safari requires the first play() call inside the Start/Retry tap.
   music.start()
   try {
-    const next=await loadBattle(selectedMonster)
+    const [next,model]=await Promise.all([
+      loadBattle(selectedMonster),
+      selectedHunter==='flare'?flareModel ?? FlareModel.load():undefined,
+    ])
+    if(model) flareModel=model
     if(battle!==next) {
       battle.reset()
+      battle.selectHunter()
       scene.remove(battle.monster.root)
       battle=next
       scene.add(battle.monster.root)
     }
+    battle.selectHunter(model)
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
     rankingRun=await beginRun(battle.monster.data.id).catch(()=>undefined)
     rankingResult=undefined
@@ -142,7 +156,8 @@ function command(action: Command) {
   if(action==='refresh') { location.reload(); return }
   if(!battle) return
   switch(action) {
-    case 'title': huntStarted=undefined; battle.reset(); switchTo('title'); break
+    case 'title': huntStarted=undefined; battle.selectHunter(); battle.reset(); switchTo('title'); break
+    case 'hunters': switchTo('hunters'); break
     case 'difficulty': switchTo('difficulty'); break
     case 'monsters': switchTo('monsters'); break
     case 'rankings':

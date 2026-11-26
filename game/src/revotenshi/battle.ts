@@ -1,5 +1,6 @@
 import { Vector3, type Scene } from 'three'
 import { Battle, type BossState } from '../battle'
+import type { HitVolume } from '../flare/combat'
 import type { Motion } from '../config'
 import type { Controls } from '../input'
 import { clamp, flatDistance, forward, wrap, yawTo } from '../math'
@@ -98,12 +99,19 @@ export class RevotenshiBattle extends Battle {
     return false
   }
 
-  protected override strikeSecondary(damage:number) {
+  protected override magicLockPoint() {
+    const target=this.lockTarget
+    return this.clones.find(clone=>clone.model.root.position===target)?.model.parts[0].center ?? super.magicLockPoint()
+  }
+
+  protected override strikeSecondary(damage:number,volume?:HitVolume,area=false) {
+    let total=0
     for (const clone of this.clones) {
       if (!clone.hp) continue
-      const part=this.findStrike(clone.model)
+      const part=this.findStrike(clone.model,volume)
       if (!part) continue
-      const dealt=Math.round(damage*part.config.multiplier)
+      const dealt=volume?damage:Math.round(damage*part.config.multiplier)
+      total+=Math.min(clone.hp,dealt)
       clone.hp=Math.max(0,clone.hp-dealt)
       this.fx.hit(part.center,dealt,'分身体',0xe3acff,dealt>=88,false)
       if (!clone.hp) {
@@ -118,9 +126,9 @@ export class RevotenshiBattle extends Battle {
           this.callout='バリア破壊 · 4秒ダウン'
         }
       }
-      return true
+      if(!area) break
     }
-    return false
+    return total
   }
 
   protected override canInterruptBoss() {
