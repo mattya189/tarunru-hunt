@@ -27,7 +27,7 @@ export class ShikoukiBattle extends Battle {
     this.attacks=new ShikoukiAttacks(this.m,this.arena.data.radius,{
       ground:this.arena.height,
       resolve:p=>this.arena.resolve(p,this.monster.data.radius),
-      damage:(damage,source,knockdown)=>!this.outcome && this.damagePlayer({damage,knockdown},source,this.monster.data.power),
+      damage:(damage,source,knockdown,scale)=>!this.outcome && this.damagePlayer({damage,knockdown},source,this.monster.data.power,scale),
       ring:(p,size,color)=>this.fx.ring(p,.4,size,.52,color),
     })
     this.visuals?.clear()

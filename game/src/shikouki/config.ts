@@ -30,6 +30,13 @@ export const phases = [
   { name: '暴走', threshold: .25, move: 1.6, speed: 1.5, power: 1.3, recovery: .6, bullets: 36 },
 ]
 
+export const damageScale = {
+  crystal: 6,
+  melee: 7,
+  heavy: 8,
+  ultimateImpact: 9,
+} as const
+
 export const crystal = { hp: 95, life: 13, limit: 48 }
 
 export const moves = {
