@@ -69,13 +69,15 @@ export class ShikoukiAttacks {
   progress:number|undefined
   callout=''
   action?:Action
-  recoveryUntil=.85
+  recoveryUntil=.20
   ultimateUsed=false
   hazards:Hazard[]=[]
   crystals:Crystal[]=[]
   shots:Shot[]=[]
   private cooldowns:Partial<Record<MoveId,number>>={}
   private last?:MoveId
+  private walkUntil=1.30
+  private turnSide=1
   private readonly previous=new Vector3()
 
   constructor(private readonly boss:Vector3, private readonly arenaRadius:number, private readonly ports:Ports) {}
@@ -92,7 +94,10 @@ export class ShikoukiAttacks {
   update(dt:number, player:Vector3, hp:number, interrupted:boolean) {
     this.time+=dt
     if(this.action) this.advance(dt,player)
-    else if(!interrupted && !this.isRecovering) this.choose(dt,player,hp)
+    else if(!interrupted && !this.isRecovering) {
+      if(this.time<this.walkUntil) this.walk(dt,player)
+      else this.choose(dt,player,hp)
+    }
 
     for(const h of this.hazards.slice()) this.updateHazard(h,dt,player)
     this.hazards=this.hazards.filter(h=>this.time<h.end)
@@ -130,21 +135,30 @@ export class ShikoukiAttacks {
     if(range<=17) choices.push(['crystal_summon',this.crystals.length<4?3:0])
     if(range<=20) choices.push(['beam',this.crystals.length?4:2])
     const options=choices.filter(([id,weight])=>weight>0 && ready(id))
-    let roll=Math.random()*(options.reduce((sum,[,weight])=>sum+weight,0)+(range>5.1?9:0))
+    let roll=Math.random()*options.reduce((sum,[,weight])=>sum+weight,0)
     for(const [id,weight] of options) {
       roll-=weight
       if(roll<0) { this.begin(id,player); return }
     }
+    this.walk(dt,player)
+  }
+
+  private walk(dt:number, player:Vector3) {
+    const range=flatDistance(this.boss,player)
+    const approach=range>3.1
+    const toward=yawTo(this.boss,player)
+    // Keep stepping around the player once inside melee range.
+    const heading=approach?toward:toward+this.turnSide*(range<2.55?1.86:1.45)
+    const pace=shikouki.speed*phases[this.phase].move*(approach?1:.74)
+    this.previous.copy(this.boss)
+    this.boss.x+=Math.sin(heading)*pace*dt
+    this.boss.z+=Math.cos(heading)*pace*dt
+    this.ports.resolve(this.boss)
     this.callout=''
     this.progress=undefined
-    if(range>2.15) {
-      this.angle=yawTo(this.boss,player)
-      const delta=Math.min(range-2.15,shikouki.speed*phases[this.phase].move*dt)
-      this.boss.x+=Math.sin(this.angle)*delta
-      this.boss.z+=Math.cos(this.angle)*delta
-      this.ports.resolve(this.boss)
-      this.motion=range>8?'run':'walk'
-    } else this.motion='idle'
+    const moved=flatDistance(this.previous,this.boss)>.001
+    this.motion=moved?'walk':'idle'
+    if(moved) this.angle=yawTo(this.previous,this.boss)
   }
 
   private begin(id:MoveId, player:Vector3) {
@@ -271,6 +285,11 @@ export class ShikoukiAttacks {
     if(a.age>=a.duration-1e-6) {
       this.action=undefined
       this.recoveryUntil=this.time+a.recovery
+      this.walkUntil=this.recoveryUntil
+      if(a.id!=='phase') {
+        this.walkUntil+=.65
+        this.turnSide*=-1
+      }
       if(a.id==='ultimate') { this.motion='fall'; this.progress=1 }
       else { this.motion='idle'; this.progress=undefined; this.callout='攻撃後の隙' }
     }

@@ -83,7 +83,7 @@ export class ShikoukiBattle extends Battle {
       : a.action?.id==='phase' ? 'rage'
       : a.action ? a.hazards.some(h=>h.live) ? 'attack' : 'windup'
       : a.isRecovering ? 'recovery'
-      : a.motion==='run' || a.motion==='walk' ? 'approach' : 'idle'
+      : a.motion==='walk' ? 'approach' : 'idle'
     if(this.bossState!==state) this.setBoss(state)
     this.bossYaw+=wrap(a.angle-this.bossYaw)*Math.min(1,dt*this.monster.data.ai.turnSpeed)
     this.monster.root.rotation.y=this.bossYaw
