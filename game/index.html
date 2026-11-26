@@ -9,13 +9,15 @@
 <body>
   <canvas id="view" aria-label="3D闘技場"></canvas>
   <section id="hud" hidden aria-label="戦闘情報">
-    <div class="hunter"><span class="caption">HUNTER</span><strong>狩人</strong>
-      <div class="gauge life" id="hp" role="meter" aria-label="体力"><i></i><b></b></div>
-      <div class="gauge stamina" id="stamina" role="meter" aria-label="スタミナ"><i></i><b></b></div>
+    <div class="battle-top">
+      <div class="player-gauges">
+        <div class="gauge life" id="hp" role="meter" aria-label="体力"><i></i></div>
+        <div class="gauge stamina" id="stamina" role="meter" aria-label="スタミナ"><i></i></div>
+      </div>
+      <button id="pause" aria-label="一時停止"></button>
     </div>
-    <div class="hunt-status"><b id="timer">00:00</b><button id="pause" aria-label="一時停止"></button></div>
-    <div class="boss"><div class="boss-label"><strong id="boss-name">モンスター</strong><span id="rage" hidden>怒り</span></div>
-      <div class="gauge enemy" id="boss-hp" role="meter" aria-label="モンスター体力"><i></i></div>
+    <div class="battle-alerts">
+      <span id="rage" hidden>怒り</span>
       <div id="callout" aria-live="polite"></div>
     </div>
     <div id="charge-meter" hidden><i></i><b>溜め</b></div>
