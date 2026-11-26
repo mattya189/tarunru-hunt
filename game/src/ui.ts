@@ -1,12 +1,14 @@
-import type { FieldData, MonsterData, WeaponData } from './config'
+import type { MonsterData, WeaponData } from './config'
 import type { Battle } from './battle'
 import type { BattleMusic } from './battle-music'
 import { clamp } from './math'
+import { bestClearTime } from './clear-times'
+import { difficulties, quests, questIcon, type Difficulty } from './quests'
 import { listScores, rankingTime, saveScore, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-export type Screen = 'loading' | 'title' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings'
-export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'rankings'
+export type Screen = 'loading' | 'title' | 'difficulty' | 'monsters' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings'
+export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'difficulty' | 'monsters' | 'rankings' | 'boss-rankings' | 'ranking-back'
 export type Quality = 'low' | 'medium' | 'high'
 const qualityLabels: Record<Quality,string> = {low:'低',medium:'中',high:'高'}
 const clock = (seconds: number) => {
@@ -30,11 +32,13 @@ export class Interface {
   private current: Screen | null = null
   private cache = new Map<HTMLElement,string>()
 
-  constructor(private data: MonsterData, private field: FieldData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private roster: readonly MonsterData[], private choose: (id:string) => void, private music:BattleMusic) {
+  constructor(private data: MonsterData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private chooseDifficulty: (level:Difficulty) => void, private choose: (id:string) => void, private music:BattleMusic) {
     document.documentElement.classList.toggle('coarse',coarse)
     this.panel.addEventListener('click',e => {
       const button=(e.target as HTMLElement).closest<HTMLButtonElement>('button')
       if (!button) return
+      const level=difficulties.find(level=>String(level)===button.dataset.difficulty)
+      if (level) this.chooseDifficulty(level)
       if (button.dataset.monster) this.choose(button.dataset.monster)
       if (button.dataset.cmd) this.send(button.dataset.cmd as Command)
       if (button.dataset.quality) {
@@ -50,7 +54,7 @@ export class Interface {
   selectMonster(data:MonsterData) {
     this.data=data
   }
-  show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string, run?:RankingRun, result?:Promise<number|null>) {
+  show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string, run?:RankingRun, result?:Promise<number|null>, difficulty:Difficulty=1) {
     this.current=screen
     this.menu.hidden=!screen
     this.menu.dataset.screen=screen??''
@@ -65,28 +69,49 @@ export class Interface {
     if (screen==='title') this.panel.innerHTML=`
       <div class="eyebrow">3D モンスター討伐</div><h1>潮鳴りの<br><em>狩場</em></h1>
       <p class="title-note">大剣を手に、夕凪の石浜へ。</p>
-      <div class="menu-actions monster-menu" aria-label="討伐対象を選ぶ">${this.roster.map(monster=>
-        `<button class="primary" data-monster="${monster.id}">${monster.name}<span aria-hidden="true">→</span></button>`).join('')}</div>
-      <div class="menu-actions">${button('rankings','世界ランキング')}${button('help','操作方法')}</div>${settings}`
-    if (screen==='rankings') {
+      <div class="menu-actions">${button('difficulty','討伐対象を選ぶ',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}</div>${settings}`
+    const icon = (quest: (typeof quests)[number]) => `<img class="quest-icon" src="${questIcon(quest)}" alt="">`
+    const selected=quests.find(quest=>quest.monster.id===this.data.id)!
+    if (screen==='difficulty') this.panel.innerHTML=`
+      <h2>難易度を選ぶ</h2>
+      <div class="difficulty-list">${difficulties.map(level=>
+        `<button class="secondary difficulty-button" data-difficulty="${level}"><strong>★${level}</strong><span>${['初級','中級','上級'][level-1]}</span></button>`).join('')}</div>
+      <div class="menu-actions">${button('title','戻る')}</div>`
+    if (screen==='monsters') this.panel.innerHTML=`
+      <h2>★${difficulty}のモンスター</h2>
+      <ul class="quest-list" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
+        `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<strong>${quest.name}</strong><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
+      <div class="menu-actions">${button('difficulty','戻る')}</div>`
+    if (screen==='rankings' || screen==='boss-rankings') {
+      const dedicated=screen==='boss-rankings'
       this.panel.innerHTML=`
-        <div class="eyebrow">TIME ATTACK</div><h2>世界ランキング</h2>
-        <label for="ranking-boss">討伐対象</label>
-        <select id="ranking-boss" class="ranking-field">${this.roster.map(monster=>
-          `<option value="${monster.id}"${monster.id===this.data.id?' selected':''}>${monster.name}</option>`).join('')}</select>
+        <h2>クリアタイムランキング</h2>
+        ${dedicated?`<div class="ranking-monster">${icon(selected)}<strong>${selected.name}</strong></div>`:`
+          <label for="ranking-boss">討伐対象</label>
+          <select id="ranking-boss" class="ranking-field">${quests.map(quest=>
+            `<option value="${quest.monster.id}"${quest.monster.id===this.data.id?' selected':''}>${quest.name}</option>`).join('')}</select>`}
         <div id="ranking-list" aria-live="polite"></div>
-        <div class="menu-actions">${button('title','タイトルへ')}</div>`
-      const boss=select<HTMLSelectElement>('ranking-boss')
+        <p class="ranking-note">ランキングのタイムには一時停止中の時間も含まれる。</p>
+        <div class="menu-actions">${button('ranking-back','戻る')}</div>`
       const list=select('ranking-list')
-      boss.addEventListener('change',()=>void this.refreshRankings(boss,list))
-      void this.refreshRankings(boss,list)
+      if(!dedicated) {
+        const boss=select<HTMLSelectElement>('ranking-boss')
+        boss.addEventListener('change',()=>void this.refreshRankings(boss.value,list))
+      }
+      void this.refreshRankings(this.data.id,list)
     }
-    if (screen==='quest') this.panel.innerHTML=`
-      <div class="eyebrow">討伐クエスト</div><h2>${this.data.name}</h2>
-      <dl><div><dt>狩場</dt><dd>${this.field.name}</dd></div><div><dt>武器</dt><dd>${this.weapon.name}</dd></div></dl>
-      <p>${this.data.id==='revotenshi'?'竜巻に当たると移動方向が5秒間逆になる。無敵バリア中は本体のHPが少しずつ回復する。分身体を2体倒すとバリアが壊れる。':this.data.id==='shikouki'?'結晶は大剣で破壊できる。紫煌天獄の着地点から離れ、着地後のダウンを狙え。':'予兆を見極めてかわし、攻撃後の隙に大剣を振り込め。'}</p>
-      <p class="ranking-note">世界ランキングのタイムには一時停止中の時間も含まれる。</p>
-      <div class="menu-actions">${button('start','狩りを始める',true)}${button('title','戻る')}</div>`
+    if (screen==='quest') {
+      const best=bestClearTime(this.data.id)
+      this.panel.innerHTML=`
+        <div class="quest-heading">${icon(selected)}<div><span class="quest-level">★${selected.difficulty}</span><h2>${selected.name}</h2></div></div>
+        <dl class="quest-facts">
+          <div><dt>クリアタイム<span>この端末の自己ベスト</span></dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>
+          <div><dt>主な攻撃</dt><dd>${selected.attacks}</dd></div>
+        </dl>
+        <details class="quest-guide"><summary>詳しい攻略</summary><ul>${selected.advice.map(tip=>`<li>${tip}</li>`).join('')}</ul></details>
+        <div class="menu-actions quest-actions">${button('start','狩りを始める',true)}${button('monsters','戻る')}</div>
+        <div class="menu-actions quest-rankings">${button('boss-rankings','このモンスターのランキング')}${button('rankings','クリアタイムランキング')}</div>`
+    }
     if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><dl><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
     if (screen==='help') this.panel.innerHTML=`
       <div class="eyebrow">FIELD MANUAL</div><h2>狩りの操作</h2>
@@ -114,8 +139,7 @@ export class Interface {
     }
     this.panel.scrollTop=0
   }
-  private async refreshRankings(boss:HTMLSelectElement, list:HTMLElement) {
-    const selected=boss.value
+  private async refreshRankings(selected:string, list:HTMLElement) {
     const loading=document.createElement('p')
     loading.textContent='ランキングを読み込み中…'
     list.replaceChildren(loading)
@@ -140,7 +164,7 @@ export class Interface {
       loading.textContent='ランキングに接続できなかった。'
       const retry=document.createElement('button')
       retry.type='button'; retry.className='secondary'; retry.textContent='再読み込み'
-      retry.addEventListener('click',()=>void this.refreshRankings(boss,list))
+      retry.addEventListener('click',()=>void this.refreshRankings(selected,list))
       list.append(retry)
     }
   }

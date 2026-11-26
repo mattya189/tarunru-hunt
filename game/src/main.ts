@@ -9,9 +9,11 @@ import { HunterModel } from './hunter'
 import { Controls } from './input'
 import { MonsterModel } from './monster-model'
 import { beginRun, finishRun, type RankingRun } from './rankings'
+import { recordClearTime } from './clear-times'
+import { quests, type Difficulty } from './quests'
 import { Interface, type Command, type Quality, type Screen } from './ui'
 import { Arena } from './world'
-import { sabottenanbon, sabottenanbonOvergrowth, sabotProfiles } from './sabottenanbon/config'
+import { sabotProfiles } from './sabottenanbon/config'
 import { AttackRuntime, effectData } from './sabottenanbon/attack-runtime'
 import { SabotBattle } from './sabottenanbon/battle'
 import { BreathBloom } from './sabottenanbon/bloom'
@@ -21,7 +23,6 @@ import { ShikoukiBattle } from './shikouki/battle'
 import { shikouki } from './shikouki/config'
 import './style.css'
 
-const roster=[tidebeast,sabottenanbon,sabottenanbonOvergrowth,revotenshi,shikouki]
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
 const music=new BattleMusic()
@@ -34,6 +35,10 @@ try {
 
 let screen: Screen | null='loading'
 let helpFrom: Screen='title'
+let rankingFrom: 'title' | 'quest' | 'victory'='title'
+let difficulty: Difficulty=1
+let selectedMonster=tidebeast
+let huntStarted: number | undefined
 let renderer: WebGLRenderer
 let scene: Scene
 let arena: Arena
@@ -49,7 +54,7 @@ let hunterShadow: ContactShadow, bossShadow: ContactShadow
 let dirty=true, frameCount=0
 let latest=performance.now(), titleTime=0, accumulator=0, uiTimer=0
 const step=1/60
-const ui=new Interface(tidebeast,coast,greatsword,input.coarse,command,applyQuality,roster,id=>void chooseMonster(id),music)
+const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,music)
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')
 const lockPoint=new Vector3()
@@ -65,7 +70,8 @@ function switchTo(next: Screen | null) {
   accumulator=0
   dirty=true
   reticle.hidden=true
-  ui.show(next,quality,battle,undefined,rankingRun,rankingResult)
+  if(battle) battle.monster.root.visible=next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='boss-rankings' && next!=='rankings'
+  ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty)
 }
 async function loadBattle(data:MonsterData) {
   const cached=battles.get(data.id)
@@ -91,40 +97,56 @@ async function loadBattle(data:MonsterData) {
   battles.set(data.id,next)
   return next
 }
-async function chooseMonster(id:string) {
-  if(screen!=='title') return
-  const monster=roster.find(candidate=>candidate.id===id)
-  if(!monster) return
+function chooseDifficulty(level:Difficulty) {
+  if(screen!=='difficulty') return
+  difficulty=level
+  switchTo('monsters')
+}
+function chooseMonster(id:string) {
+  if(screen!=='monsters') return
+  const quest=quests.find(candidate=>candidate.difficulty===difficulty && candidate.monster.id===id)
+  if(!quest) return
+  selectedMonster=quest.monster
+  ui.selectMonster(selectedMonster)
+  switchTo('quest')
+}
+async function startHunt() {
+  if(screen!=='quest' && screen!=='paused' && screen!=='victory' && screen!=='failure') return
   switchTo('loading')
+  // Safari requires the first play() call inside the Start/Retry tap.
+  music.start()
   try {
-    const next=await loadBattle(monster)
+    const next=await loadBattle(selectedMonster)
     if(battle!==next) {
       battle.reset()
       scene.remove(battle.monster.root)
       battle=next
       scene.add(battle.monster.root)
     }
-    battle.reset()
-    ui.selectMonster(monster)
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
-    switchTo('quest')
+    rankingRun=await beginRun(battle.monster.data.id).catch(()=>undefined)
+    rankingResult=undefined
+    battle.reset(); camera.reset(battle)
+    huntStarted=performance.now()
+    switchTo(null)
+    ui.status(battle,battle.lock)
   } catch(error) { fail(error) }
-}
-async function startHunt() {
-  switchTo('loading')
-  // Safari requires the first play() call inside the Start/Retry tap, before the ranking request.
-  music.start()
-  rankingRun=await beginRun(battle.monster.data.id).catch(()=>undefined)
-  rankingResult=undefined
-  battle.reset(); camera.reset(battle); switchTo(null)
-  ui.status(battle,battle.lock)
 }
 function command(action: Command) {
   if(action==='refresh') { location.reload(); return }
   if(!battle) return
   switch(action) {
-    case 'title': battle.reset(); switchTo('title'); break
-    case 'rankings': switchTo('rankings'); break
+    case 'title': huntStarted=undefined; battle.reset(); switchTo('title'); break
+    case 'difficulty': switchTo('difficulty'); break
+    case 'monsters': switchTo('monsters'); break
+    case 'rankings':
+    case 'boss-rankings':
+      if(screen==='title' || screen==='quest' || screen==='victory') {
+        rankingFrom=screen
+        switchTo(action)
+      }
+      break
+    case 'ranking-back': switchTo(rankingFrom); break
     case 'start':
     case 'retry': void startHunt(); break
     case 'resume': switchTo(null); break
@@ -174,6 +196,10 @@ function frame(now: number) {
       else { battle.update(step,input,camera.yaw); input.endFrame() }
     }
     if(battle.outcome) music.pause()
+    if(battle.outcome==='victory' && huntStarted!==undefined) {
+      recordClearTime(battle.monster.data.id,Math.max(1,Math.round(performance.now()-huntStarted)))
+      huntStarted=undefined
+    }
     if(battle.outcome==='victory' && rankingRun && !rankingResult) {
       rankingResult=finishRun(rankingRun).catch(()=>null)
     }
@@ -197,12 +223,12 @@ function frame(now: number) {
     uiTimer+=dt
     if(uiTimer>=.05) { ui.status(battle,battle.lock); uiTimer=0 }
     if(battle.outcome&&battle.outcomeTime>(battle.outcome==='victory'?Math.max(2.45,battle.defeatDuration+.35):1.45)) switchTo(battle.outcome)
-  } else if(screen==='title'||screen==='quest'||screen==='help'&&helpFrom==='title') {
+  } else if(screen==='title'||screen==='help'&&helpFrom==='title') {
     titleTime+=dt
     battle.monster.animate('idle',dt)
     camera.update(dt,battle,0,0,false,titleTime+.01)
   }
-  const moving=screen===null||screen==='title'||screen==='quest'||screen==='help'&&helpFrom==='title'
+  const moving=screen===null||screen==='title'||screen==='help'&&helpFrom==='title'
   if (dirty||moving) {
     hunterShadow.follow(battle.p,.64)
     bossShadow.follow(battle.m,battle instanceof ShikoukiBattle ? 1.18 : battle.bossState==='attack' && battle.callout==='跳躍プレス'?.46:.72)
