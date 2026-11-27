@@ -1,5 +1,5 @@
 # tarunru-hunt
-## 潮鳴りの狩場
+## メガネハント
 
 ソースは [game/](game/) にあります。ルートの `index.html`、`assets/`、`models/`、`licenses/` は GitHub Pages 用のビルド出力です。
 
