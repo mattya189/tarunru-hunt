@@ -1,0 +1,8 @@
+古代神殿跡地 / Ancient Temple Arena
+
+This work is based on “Ancient Temple Modular Kit” by MMC Works, licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+Source: https://sketchfab.com/3d-models/ancient-temple-modular-kit-89243c2c9fe2409e9297fbbe58ba32e3
+Author: https://sketchfab.com/mmcworks
+License: https://creativecommons.org/licenses/by/4.0/
+
+Modifications: arena layout, texture resizing and JPEG conversion, GLB packaging, mobile texture optimization, mesh compression and instancing, and in-game placement and lighting.

@@ -152,6 +152,7 @@ export class Battle {
   private get aimedMonster() { return this.lockedMonster ?? this.defaultLockTarget() }
   get rageLabel() { return '怒り' }
   get fieldDarkness() { return 0 }
+  get field() { return this.arena }
   get defeatDuration() { return 1.65 }
   protected get bossGroundRadius() { return this.monster.data.radius }
   protected get guarding() { return this.guard }

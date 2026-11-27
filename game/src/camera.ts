@@ -35,7 +35,7 @@ export class HuntCamera {
   update(dt: number, battle: Battle, lookX: number, shake: number, snap = false, showcase = 0) {
     this.yaw=wrap(this.yaw-lookX*.007)
     const camera=this.camera, portrait=camera.aspect<1
-    const summit=this.arena.data.landscape==='summit'
+    const fieldCamera=this.arena.data.camera
     const victory=battle.outcome==='victory'
     const orbit=showcase>0
     if (orbit) {
@@ -53,10 +53,11 @@ export class HuntCamera {
     const distanceToMonster=flatDistance(battle.p,target)
     if(locked) this.yaw=wrap(this.yaw+wrap(yawTo(battle.p,target)-this.yaw)*damp(5.8,dt))
     this.target.copy(victory?battle.m:battle.p)
-    const framingHeight=summit?(victory?2.9:4.7):victory?1.42:portrait?1.91:1.58
-    this.target.y+=framingHeight
-    if(summit && !victory) {
-      const room=Math.min(.38,5/Math.max(1,distanceToMonster))
+    const view=victory?'victory':portrait?'portrait':'landscape'
+    this.target.y+=fieldCamera?.focusHeight[view] ?? (victory?1.42:portrait?1.91:1.58)
+    const tracking=fieldCamera?.targetTracking
+    if(tracking && !victory) {
+      const room=Math.min(tracking.fraction,tracking.distance/Math.max(1,distanceToMonster))
       this.target.x+=(target.x-battle.p.x)*room
       this.target.z+=(target.z-battle.p.z)*room
     }
@@ -64,8 +65,9 @@ export class HuntCamera {
     if(locked) this.target.addScaledVector(forward(this.yaw,this.normal),Math.min(.65,distanceToMonster*.055))
     this.focus.lerp(this.target,snap?1:damp(victory?3.5:14,dt))
     const closeRoom=victory?0:clamp((4.8-distanceToMonster)/3.2,0,1)
-    const spacing=summit?(victory?16:portrait?25:22):(victory?7.6:portrait?8.65:7.45)+closeRoom*.95
-    const pitch=summit?.52:this.pitch
+    const baseDistance=fieldCamera?.distance[view] ?? (victory?7.6:portrait?8.65:7.45)
+    const spacing=baseDistance+closeRoom*(fieldCamera ? fieldCamera.closeDistance ?? 0 : .95)
+    const pitch=fieldCamera?.pitch ?? this.pitch
     const side=victory||portrait?0:.58
     forward(this.yaw,this.normal)
     this.anchor.copy(this.focus)

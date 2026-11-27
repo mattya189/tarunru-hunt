@@ -1,11 +1,8 @@
-import type { FieldData, MonsterData, Motion } from '../config'
-
-export const summit: FieldData = {
-  name: '神の山頂', radius: 18, playerSpawn: [0, 7.5], monsterSpawn: [0, .5], landscape: 'summit',
-}
+import type { MonsterData, Motion } from '../config'
 
 export const wanda: MonsterData = {
   id: 'wanda-butterfly-king', name: 'ワンダ・バタフ・キング',
+  fieldId: 'FIELD_003',
   model: 'models/wanda/monarch.glb', hp: 3200, speed: 4.8, power: 1, scale: .83,
   yawOffset: 0, footOffset: -4.36, radius: .65, rigidMeshes: true, meshopt: true, flightFloorContact: 6.2,
   emitters: ['Body', 'Crown', 'WingUpperL', 'WingUpperR', 'BladeL', 'BladeR'],

@@ -1,3 +1,5 @@
+import type { FieldId } from './fields'
+
 export type Motion = 'wandaBack' | 'wandaLeft' | 'wandaRight' | 'wandaWind' | 'wandaCross' | 'wandaBomb' | 'wandaPull' | 'wandaWave' | 'wandaBeam' | 'wandaDive' | 'wandaTornado' | 'wandaCollapse' | 'wandaJudgment' | 'emperorFang' | 'emperorCutoff' | 'emperorComboFirst' | 'emperorComboSecond' | 'emperorComboLast' | 'emperorRest' | 'fireShot' | 'featherDrop' | 'fireBreath' | 'ultimateCharge' | 'kouenchoRecovery' | 'ravenArms' | 'ravenArmsRage' | 'ravenLaser' | 'ravenFeathers' | 'ravenMarks' | 'kogobonJumpCharge' | 'kogobonJump' | 'kogobonScreamCharge' | 'kogobonScream' | 'kogobonSlamCharge' | 'kogobonSlam' | 'kogobonRecovery' | 'kogobonExhausted' | 'shikoukiPierce' | 'shikoukiBarrage' | 'shikoukiTakeoff' | 'shikoukiHover' | 'shikoukiBerserk' | 'beamPrep' | 'beamFire' | 'beamRecover' | 'spinRecover' | 'tornadoPrep' | 'tornadoRelease' | 'tornadoRecover' | 'summon' | 'barrierIdle' | 'barrierBreak' | 'downLoop' | 'rageIdle' | 'attack_01' | 'attack_05' | 'special_01' | 'enrage' | 'getUp' | 'turnRight' | 'leapPrep' | 'spinPrep' | 'idle' | 'walk' | 'run' | 'turn' | 'roar' | 'swipe' | 'rush' | 'spin' | 'leap' | 'special' | 'hit' | 'stagger' | 'fall' | 'defeat'
 export type AttackId = 'swipe' | 'rush' | 'spin' | 'leap' | 'special'
 export interface Attack {
@@ -17,6 +19,7 @@ export type MonsterPose = readonly [number, number, number, number, number, numb
 export interface MonsterData {
   id: string
   name: string
+  fieldId?: FieldId
   model: string
   hp: number
   speed: number
@@ -74,13 +77,6 @@ export interface WeaponData {
   swings: [WeaponStrike, WeaponStrike, WeaponStrike]
   charge: WeaponStrike
 }
-export interface FieldData {
-  landscape?: 'summit'
-  name: string
-  radius: number
-  playerSpawn: readonly [number, number]
-  monsterSpawn: readonly [number, number]
-}
 export const greatsword: WeaponData = {
   name: '大剣', hp: 130, stamina: 100, walk: 6.35, roll: 9,
   swings: [
@@ -90,4 +86,3 @@ export const greatsword: WeaponData = {
   ],
   charge: { windup: .18, active: .26, recovery: .56, damage: 63, lunge: 4.4 },
 }
-export const coast: FieldData = { name: '夕凪の石浜', radius: 24, playerSpawn: [0, 8], monsterSpawn: [0, -2] }
