@@ -4,7 +4,7 @@ import type { BattleMusic } from './battle-music'
 import { maxEnergy } from './flare/combat'
 import { clamp } from './math'
 import { bestClearTime } from './clear-times'
-import { difficulties, quests, questIcon, type Difficulty } from './quests'
+import { difficulties, difficultyInfo, quests, questIcon, type Difficulty } from './quests'
 import { listScores, monsterPlayerCounts, rankingTime, saveScore, type HunterId, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
@@ -99,11 +99,11 @@ export class Interface {
     if (screen==='difficulty') this.panel.innerHTML=`
       <h2>難易度を選ぶ</h2>
       <div class="difficulty-list">${difficulties.map(level=>
-        `<button class="secondary difficulty-button" data-difficulty="${level}"><strong>★${level}</strong><span>${['初級','中級','上級'][level-1]}</span></button>`).join('')}</div>
+        `<button class="secondary difficulty-button" data-difficulty="${level}"><strong>${difficultyInfo[level].name}</strong><span>${difficultyInfo[level].description}</span></button>`).join('')}</div>
       <div class="menu-actions">${button('hunters','戻る')}</div>`
     const count=(boss:string)=>`<span class="player-count" data-player-count="${boss}">集計中…</span>`
     if (screen==='monsters') this.panel.innerHTML=`
-      <h2>★${difficulty}のモンスター</h2>
+      <h2>${difficultyInfo[difficulty].name}のモンスター</h2>
       <ul class="quest-list" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
         `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<span class="quest-name"><strong>${quest.name}</strong>${count(quest.monster.id)}</span><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
       <p class="player-count-note">挑戦者数は閲覧中のブラウザを除いて集計。</p>
@@ -147,7 +147,7 @@ export class Interface {
     if (screen==='quest') {
       const best=bestClearTime(this.data.id,hunter)
       this.panel.innerHTML=`
-        <div class="quest-heading">${icon(selected)}<div><span class="quest-level">★${selected.difficulty}</span><h2>${selected.name}</h2></div></div>
+        <div class="quest-heading">${icon(selected)}<div><span class="quest-level">${difficultyInfo[selected.difficulty].name}</span><h2>${selected.name}</h2></div></div>
         <p class="player-count-note">${count(this.data.id)} · このブラウザを除く</p>
         <dl class="quest-facts">
           <div><dt>クリアタイム<span>この端末の自己ベスト · ${hunterLabels[hunter]}</span></dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>

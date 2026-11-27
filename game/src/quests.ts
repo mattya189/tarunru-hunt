@@ -1,4 +1,5 @@
 import { tidebeast, type MonsterData } from './config'
+import { emperor } from './emperor/config'
 import { kogobon } from './kogobon/config'
 import { revotenshi } from './revotenshi/config'
 import { sabottenanbon, sabottenanbonOvergrowth } from './sabottenanbon/config'
@@ -6,7 +7,13 @@ import { shikouki } from './shikouki/config'
 import { raven } from './raven/config'
 import { kouencho } from './kouencho/config'
 
-export const difficulties = [1, 2, 3] as const
+export const difficultyInfo = {
+  1: { name: '★1', description: '初級' },
+  2: { name: '★2', description: '中級' },
+  3: { name: '★3', description: '上級' },
+  emperor: { name: 'エンペラー', description: '最高難度' },
+} as const
+export const difficulties = [1, 2, 3, 'emperor'] as const
 export type Difficulty = typeof difficulties[number]
 
 interface HuntQuest {
@@ -85,6 +92,15 @@ export const quests: readonly HuntQuest[] = [
       '結晶は大剣で破壊できる。光線が結晶に当たると分岐し、斬撃が当たると結晶が爆発する。',
       'HP60%以下で怒り、25%以下で暴走する。紫煌天獄では着地点の予告から離れ、着地後のダウンを狙う。',
       '紫煌天獄の着地衝撃波は直撃で144ダメージ。回避が間に合わないときは着地点を向いてガードする。',
+    ],
+  },
+  {
+    monster: emperor, name: emperor.name, difficulty: 'emperor', icon: 'tarunru',
+    attacks: '腕薙ぎ、潮鳴り震波、返し牙、退路狩り、皇圧三連',
+    advice: [
+      '空振りを見てすぐ横から攻め続けると、返し牙が来る。半身をひねったら追撃まで待とう。',
+      '後ろ回避を繰り返すと、退路に帯状の衝撃波が出る。予告を見たら横か斜め前へ。',
+      'HPが半分を切ると皇圧三連。二撃目は一拍遅い。最後の正面叩きつけを横に抜けたら反撃しよう。',
     ],
   },
 ]

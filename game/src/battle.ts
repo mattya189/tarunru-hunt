@@ -138,6 +138,8 @@ export class Battle {
   get lockTarget() { return this.m }
   get rageLabel() { return '怒り' }
   get defeatDuration() { return 1.65 }
+  protected get guarding() { return this.guard }
+  protected get attackDamageMultiplier() { return this.monster.data.power*(this.rage?1.1:1) }
 
   private setPlayer(state: FighterState) { this.playerState=state; this.pt=0 }
   protected setBoss(state: BossState) { this.bossState=state; this.bt=0 }
@@ -290,7 +292,9 @@ export class Battle {
     if (magnitude>.13) this.roll.copy(direction).normalize()
     else forward(this.playerYaw,this.roll)
     this.playerYaw=Math.atan2(this.roll.x,this.roll.z)
+    this.onDodge(this.roll)
   }
+  protected onDodge(_direction: Vector3) {}
   private beginSwing(combo: number, charged: boolean) {
     this.combo=combo; this.charged=charged; this.strike=charged?this.weapon.charge:this.weapon.swings[combo]
     if (!charged) this.power=1
@@ -524,11 +528,14 @@ export class Battle {
       this.recoveryDuration=chain ? this.monster.data.rage.chainDelay : a.recovery/tempo
       if (chain) this.cooldowns.spin=Math.min(.17,this.cooldowns.spin)
       this.setBoss('recovery'); this.callout='攻撃後の隙'
+      this.onAttackFinished(a,this.attackHit)
     }
   }
+  protected onAttackFinished(_attack: Attack, _hit: boolean) {}
+
   protected damagePlayer(
     a: Pick<Attack,'damage' | 'knockdown'>, source: Vector3,
-    multiplier = this.monster.data.power*(this.rage?1.1:1), damageScale = 1,
+    multiplier = this.attackDamageMultiplier, damageScale = 1,
     guardEffect?: { damageScale: number; push: number } | 'dodge-only',
   ) {
     const dodgeOnly=guardEffect==='dodge-only'
