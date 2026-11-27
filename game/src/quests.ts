@@ -4,6 +4,7 @@ import { revotenshi } from './revotenshi/config'
 import { sabottenanbon, sabottenanbonOvergrowth } from './sabottenanbon/config'
 import { shikouki } from './shikouki/config'
 import { raven } from './raven/config'
+import { kouencho } from './kouencho/config'
 
 export const difficulties = [1, 2, 3] as const
 export type Difficulty = typeof difficulties[number]
@@ -34,6 +35,14 @@ export const quests: readonly HuntQuest[] = [
       '咆哮はコウゴボンの方を向いてガードするか、扇形の横へ抜ける。ガードできればHPは減らない。',
       '叩きつけは円の外へ歩き、跳び込みは着地点の予告を見て横へ回避。攻撃が終わったら反撃しよう。',
       '攻撃を3回出すたびに5秒間息切れする。落ち着いて近づいて大剣を振ろう。',
+    ],
+  },
+  {
+    monster: kouencho, name: kouencho.name, difficulty: 1, icon: 'kouencho',
+    attacks: '火炎弾、火翼急襲、火翼回転、火羽落とし、火炎放射、全域炎輪',
+    advice: [
+      '炎翼鳥種。炎の予告を横へ抜けて、低く降りたところに反撃しよう。',
+      '全域炎輪では足元に迫る炎の波に合わせて回避。波が消えた後は低空で4秒間動けなくなる。',
     ],
   },
   {

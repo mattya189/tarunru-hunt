@@ -26,6 +26,8 @@ import { KogobonBattle } from './kogobon/battle'
 import { kogobon } from './kogobon/config'
 import { RavenBattle } from './raven/battle'
 import { raven } from './raven/config'
+import { KouenchoBattle } from './kouencho/battle'
+import { kouencho } from './kouencho/config'
 import './style.css'
 
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
@@ -104,6 +106,10 @@ async function loadBattle(data:MonsterData) {
     const encounter=new KogobonBattle(monster,hunter,arena,fx,greatsword)
     scene.add(encounter.warning)
     next=encounter
+  } else if(data.id===kouencho.id) {
+    const encounter=new KouenchoBattle(monster,hunter,arena,fx,greatsword)
+    scene.add(encounter.visuals.root)
+    next=encounter
   } else if(data.id===raven.id) {
     const encounter=new RavenBattle(monster,hunter,arena,fx,greatsword)
     scene.add(encounter.visuals.root)
@@ -145,10 +151,10 @@ async function startHunt() {
       battle.reset()
       battle.selectHunter()
       scene.remove(battle.monster.root)
-      if(battle instanceof RavenBattle) {
+      if(battle instanceof RavenBattle || battle instanceof KouenchoBattle) {
         battle.visuals.dispose()
         battle.monster.dispose()
-        battles.delete(raven.id)
+        battles.delete(battle.monster.data.id)
       }
       battle=next
       scene.add(battle.monster.root)
@@ -238,7 +244,7 @@ function frame(now: number) {
     camera.update(dt,battle,lookX,fx.shake)
     fx.update(dt,p=>p.project(camera.camera))
     if(battle.lock&&!battle.outcome) {
-      if(battle instanceof ShikoukiBattle || battle instanceof KogobonBattle || battle instanceof RavenBattle) {
+      if(battle instanceof ShikoukiBattle || battle instanceof KogobonBattle || battle instanceof RavenBattle || battle instanceof KouenchoBattle) {
         lockPoint.copy(battle.monster.parts[0].center)
       } else if(battle instanceof SabotBattle) {
         lockPoint.copy(battle.monster.parts[0].center)

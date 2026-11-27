@@ -1,10 +1,12 @@
 import { AnimationAction, AnimationClip, AnimationMixer, Color, Euler, Group, LoopOnce, LoopRepeat, Mesh, MeshStandardMaterial, Object3D, Quaternion, QuaternionKeyframeTrack, Texture, Vector3, VectorKeyframeTrack, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
 import type { MonsterData, Motion } from './config'
 import { batchRigidMeshes } from './rigid-meshes'
 
 type Pose = [number, number, number, number, number, number, number]
 type Parts = { config: MonsterData['parts'][number]; bone: Object3D; local: Vector3; center: Vector3 }
+const emberGlow = new Color(0xd45414)
 const eyeGlow = new Color(0xe63a92)
 const neutral: Pose = [0,0,0,0,0,0,0]
 const axes: number[][] = []
@@ -51,12 +53,15 @@ export class MonsterModel {
   private motion?: Motion
   private readonly emitters = new Map<string, Object3D>()
   private mantling = false
+  private flightOffset = 0
   groundHeight?: (x:number,z:number)=>number
   private support: { mesh: Mesh; indices: number[] }[] = []
   private contact = new Vector3()
 
   static async load(data: MonsterData) {
-    const asset = await new GLTFLoader().loadAsync(import.meta.env.BASE_URL + data.model)
+    const loader = new GLTFLoader()
+    if(data.meshopt) loader.setMeshoptDecoder(MeshoptDecoder)
+    const asset = await loader.loadAsync(import.meta.env.BASE_URL + data.model)
     return new MonsterModel(data, asset.scene, asset.animations)
   }
 
@@ -67,7 +72,7 @@ export class MonsterModel {
     this.visual.scale.setScalar(data.scale)
     this.visual.position.y=data.footOffset*data.scale
     this.visual.rotation.y = data.yawOffset
-    if(data.rigidMeshes) batchRigidMeshes(asset,clips)
+    if(data.rigidMeshes && !data.meshopt) batchRigidMeshes(asset,clips)
     const bones: string[] = []
     asset.traverse(object => {
       if (object instanceof Mesh) {
@@ -83,7 +88,7 @@ export class MonsterModel {
         if ((object as SkinnedMesh).isSkinnedMesh) object.frustumCulled = false
       }
       if (object.type === 'Bone') bones.push(object.name)
-      if (object.name==='MuzzleL' || object.name==='MuzzleR' || object.name==='Wing') this.emitters.set(object.name,object)
+      if (object.name==='MuzzleL' || object.name==='MuzzleR' || object.name==='Wing' || data.emitters?.includes(object.name)) this.emitters.set(object.name,object)
     })
     this.details = { clips: clips.map(c => c.name), bones }
     const bone = (name: string) => {
@@ -134,6 +139,19 @@ export class MonsterModel {
 
   emitter(name: string, target: Vector3) {
     return (this.emitters.get(name) ?? this.root).getWorldPosition(target)
+  }
+
+  setFlightOffset(lift: number) {
+    this.flightOffset=lift
+    this.visual.position.y=this.data.footOffset*this.data.scale+lift
+  }
+
+  setEmberGlow(strength: number) {
+    for (const [material,original] of this.materials) {
+      if (!/^(Oxidized crimson armor|Heat-tempered copper ridge|Coal and ember plumage)/.test(material.name)) continue
+      material.emissive.copy(original.color).lerp(emberGlow,strength)
+      material.emissiveIntensity=original.intensity+strength*.14
+    }
   }
 
   setEyeGlow(strength: number, spread: boolean) {
@@ -205,7 +223,7 @@ export class MonsterModel {
       const position=mesh.getVertexPosition(index,this.contact).applyMatrix4(mesh.matrixWorld)
       lowest=Math.min(lowest,position.y-(terrain?.(position.x,position.z)??this.root.position.y))
     }
-    const base=this.data.footOffset*this.data.scale
+    const base=this.data.footOffset*this.data.scale+this.flightOffset
     const contact=this.visual.position.y-lowest
     const grounded=this.data.groundRigid ? contact : Math.max(base,contact-.018)
     if (Math.abs(grounded-this.visual.position.y)>.0015) {
