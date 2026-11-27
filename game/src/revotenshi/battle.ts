@@ -49,6 +49,9 @@ export class RevotenshiBattle extends Battle {
   }
 
   override get defeatDuration() { return this.monster.duration('defeat') }
+  override get reticleTargets() {
+    return [this.monster, ...this.clones.filter(clone => clone.hp > 0).map(clone => clone.model)]
+  }
   override get lockTarget() {
     const living=this.clones.filter(clone=>clone.hp>0)
     if (!living.length) return this.m

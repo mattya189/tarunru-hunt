@@ -105,6 +105,14 @@ export const quests: readonly HuntQuest[] = [
   },
 ]
 
+function iconUrl(icon: string) {
+  return import.meta.env.BASE_URL + 'icons/' + icon + '.webp'
+}
+
 export function questIcon(quest: HuntQuest) {
-  return import.meta.env.BASE_URL + 'icons/' + quest.icon + '.webp'
+  return iconUrl(quest.icon)
+}
+
+export function monsterIcon(monster: MonsterData) {
+  return iconUrl(monster.reticle?.icon ?? quests.find(quest => quest.monster.id === monster.id)?.icon ?? monster.id)
 }

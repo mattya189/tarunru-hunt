@@ -57,8 +57,9 @@ export class Controls {
       this.stickOriginY = onStick ? centerY : e.clientY
       this.stickRange = Math.max(24,radius*.49)
       if (!onStick) {
-        const x = Math.max(zone.left+radius+6,Math.min(zone.right-radius,e.clientX))
-        const y = Math.max(zone.top+radius,Math.min(zone.bottom-radius-10,e.clientY))
+        const viewport = stickZone.parentElement!.getBoundingClientRect()
+        const x = Math.max(Math.max(zone.left,viewport.left)+radius,Math.min(Math.min(zone.right,viewport.right)-radius,e.clientX))
+        const y = Math.max(Math.max(zone.top,viewport.top)+radius,Math.min(Math.min(zone.bottom,viewport.bottom)-radius,e.clientY))
         this.stick.style.translate = `${x-centerX}px ${y-centerY}px`
       }
       this.stick.classList.add('steering')

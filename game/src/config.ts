@@ -30,6 +30,7 @@ export interface MonsterData {
   ai: { wake: number; turnSpeed: number; stagger: number; topple: number; enabledAttacks: AttackId[] }
   motions: Partial<Record<Motion, { clip: string; speed?: number }>>
   extraPoses?: Partial<Record<Motion, readonly MonsterPose[]>>
+  reticle?: { anchor?: 'root' | 'first-part'; offsetY?: number; size?: number; icon?: string }
   meshopt?: boolean
   emitters?: readonly string[]
   rigidMeshes?: boolean
@@ -40,6 +41,7 @@ export interface MonsterData {
 export const tidebeast: MonsterData = {
   id: 'monster001', name: 'タルンルソルク', model: 'models/monster001_v4.glb', hp: 1160,
   speed: 2.65, power: 1, scale: 1.36, yawOffset: 0, footOffset: -.026, radius: 1.04,
+  reticle: { anchor: 'root', offsetY: 3.22 * 1.36 },
   parts: [
     { name: '頭', bone: 'Head', offset: [0, .26, .45], radius: .72, multiplier: 1.42, stagger: 1.45 },
     { name: '左腕', bone: 'ArmL', offset: [-.34, -.22, .02], radius: .58, multiplier: 1.08, stagger: 1 },
