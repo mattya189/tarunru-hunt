@@ -4,6 +4,12 @@ import { clamp, flatDistance, forward, smooth, wrap, yawTo } from '../math'
 import { attacks, exhaustedTime, jumpRange, type KogobonAttack } from './config'
 import { KogobonTelegraph } from './telegraph'
 
+const attackVoices = {
+  scream: 'kogobon-voice-1',
+  slam: 'kogobon-voice-2',
+  jump: 'kogobon-voice-3',
+} as const
+
 export class KogobonBattle extends Battle {
   private readonly telegraph = new KogobonTelegraph(this.arena.height)
   readonly warning = this.telegraph.mesh
@@ -84,7 +90,10 @@ export class KogobonBattle extends Battle {
       const progress = clamp(this.bt / attack.windup, 0, 1)
       this.telegraph.pulse(progress)
       this.monster.animate(attack.charge, dt, progress)
-      if (progress >= 1 - 1e-6) this.setBoss('attack')
+      if (progress >= 1 - 1e-6) {
+        this.setBoss('attack')
+        this.fx.sound(attackVoices[id], this.m)
+      }
       return
     }
 
