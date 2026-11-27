@@ -1,10 +1,11 @@
-import { AnimationAction, AnimationClip, AnimationMixer, Color, Euler, Group, LoopOnce, LoopRepeat, Mesh, MeshStandardMaterial, Object3D, Quaternion, QuaternionKeyframeTrack, Vector3, VectorKeyframeTrack, type SkinnedMesh } from 'three'
+import { AnimationAction, AnimationClip, AnimationMixer, Color, Euler, Group, LoopOnce, LoopRepeat, Mesh, MeshStandardMaterial, Object3D, Quaternion, QuaternionKeyframeTrack, Texture, Vector3, VectorKeyframeTrack, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import type { MonsterData, Motion } from './config'
 import { batchRigidMeshes } from './rigid-meshes'
 
 type Pose = [number, number, number, number, number, number, number]
 type Parts = { config: MonsterData['parts'][number]; bone: Object3D; local: Vector3; center: Vector3 }
+const eyeGlow = new Color(0xe63a92)
 const neutral: Pose = [0,0,0,0,0,0,0]
 const axes: number[][] = []
 for (const x of [-1,0,1]) for (const y of [-1,0,1]) for (const z of [-1,0,1]) {
@@ -43,10 +44,14 @@ export class MonsterModel {
   readonly details: { clips: string[]; bones: string[] }
   private readonly visual = new Group()
   private readonly mixer: AnimationMixer
+  private readonly asset: Group
   private readonly actions = new Map<Motion, AnimationAction>()
   private current?: AnimationAction
   private readonly materials = new Map<MeshStandardMaterial, { color: Color; intensity: number }>()
   private motion?: Motion
+  private readonly emitters = new Map<string, Object3D>()
+  private mantling = false
+  groundHeight?: (x:number,z:number)=>number
   private support: { mesh: Mesh; indices: number[] }[] = []
   private contact = new Vector3()
 
@@ -56,6 +61,7 @@ export class MonsterModel {
   }
 
   private constructor(readonly data: MonsterData, asset: Group, clips: AnimationClip[]) {
+    this.asset=asset
     this.root.add(this.visual)
     this.visual.add(asset)
     this.visual.scale.setScalar(data.scale)
@@ -65,7 +71,7 @@ export class MonsterModel {
     const bones: string[] = []
     asset.traverse(object => {
       if (object instanceof Mesh) {
-        if(!data.rigidMeshes) this.support.push({mesh:object,indices:contactVertices(object)})
+        if(!data.rigidMeshes || data.groundRigid) this.support.push({mesh:object,indices:contactVertices(object)})
         object.castShadow = !data.rigidMeshes
         object.receiveShadow = false
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
@@ -77,6 +83,7 @@ export class MonsterModel {
         if ((object as SkinnedMesh).isSkinnedMesh) object.frustumCulled = false
       }
       if (object.type === 'Bone') bones.push(object.name)
+      if (object.name==='MuzzleL' || object.name==='MuzzleR' || object.name==='Wing') this.emitters.set(object.name,object)
     })
     this.details = { clips: clips.map(c => c.name), bones }
     const bone = (name: string) => {
@@ -125,6 +132,38 @@ export class MonsterModel {
     this.animate('idle',0)
   }
 
+  emitter(name: string, target: Vector3) {
+    return (this.emitters.get(name) ?? this.root).getWorldPosition(target)
+  }
+
+  setEyeGlow(strength: number, spread: boolean) {
+    this.mantling=spread
+    for (const [material,original] of this.materials) {
+      if (!material.name.startsWith('Amber iris')) continue
+      material.emissive.copy(original.color).lerp(eyeGlow,strength)
+      material.emissiveIntensity=original.intensity
+    }
+  }
+
+  dispose() {
+    this.mixer.stopAllAction()
+    this.mixer.uncacheRoot(this.asset)
+    const textures=new Set<Texture>()
+    const geometries=new Set<Mesh['geometry']>()
+    this.asset.traverse(node=>{
+      if(node instanceof Mesh) geometries.add(node.geometry)
+    })
+    for(const geometry of geometries) geometry.dispose()
+    for(const material of this.materials.keys()) {
+      for(const property of Object.values(material)) if(property instanceof Texture) textures.add(property)
+      material.dispose()
+    }
+    for(const texture of textures) {
+      if(typeof ImageBitmap!=='undefined' && texture.image instanceof ImageBitmap) texture.image.close()
+      texture.dispose()
+    }
+  }
+
   duration(motion: Motion) { return this.actions.get(motion)?.getClip().duration ?? 1 }
 
   setEnraged(value: boolean) {
@@ -152,16 +191,23 @@ export class MonsterModel {
     if (progress !== undefined) action.time = Math.min(action.getClip().duration - .0001, progress * action.getClip().duration)
     else action.timeScale = this.data.motions[motion]?.speed ?? 1
     this.mixer.update(dt)
+    if(this.data.groundRigid) {
+      const wing=this.emitters.get('Wing')!
+      // Every clip supplies a wing track. Apply the rage stance to the sampled pose.
+      if(this.mantling && motion!=='defeat') wing.rotateY(-.19)
+    }
     this.root.updateMatrixWorld(true)
     // Sparse extremal vertices give the floor contact of each animated stance,
     // including the original Defeat clip, whose unadjusted body crosses the floor.
     let lowest=Infinity
+    const terrain=this.groundHeight
     for (const {mesh,indices} of this.support) for (const index of indices) {
       const position=mesh.getVertexPosition(index,this.contact).applyMatrix4(mesh.matrixWorld)
-      lowest=Math.min(lowest,position.y)
+      lowest=Math.min(lowest,position.y-(terrain?.(position.x,position.z)??this.root.position.y))
     }
     const base=this.data.footOffset*this.data.scale
-    const grounded=Math.max(base,this.root.position.y-lowest+this.visual.position.y-.018)
+    const contact=this.visual.position.y-lowest
+    const grounded=this.data.groundRigid ? contact : Math.max(base,contact-.018)
     if (Math.abs(grounded-this.visual.position.y)>.0015) {
       this.visual.position.y=grounded
       this.root.updateMatrixWorld(true)
