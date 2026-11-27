@@ -170,7 +170,7 @@ export class Interface {
       <tr><th>フレア</th><td>魔弾・フレア</td><td>J で魔弾 / K でフレア</td></tr>
       <tr><th>回避</th><td>回避</td><td>Space</td></tr>
       <tr><th>ガード</th><td>ガードを長押し</td><td>L を長押し</td></tr>
-      <tr><th>ロックオン</th><td>照準</td><td>Q</td></tr>
+      <tr><th>ロックオン</th><td>敵のアイコンをタップ、照準で解除</td><td>アイコンをクリック、Qで切替</td></tr>
       <tr><th>一時停止</th><td>一時停止ボタン</td><td>Esc / P</td></tr></tbody></table></div>
       <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。スマホでは縦向きで遊べる。「操作配置」でタッチ操作を調整できる。</p>
       <div class="menu-actions">${button('back','戻る',true)}</div>`

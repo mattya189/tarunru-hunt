@@ -75,7 +75,10 @@ const step=1/60
 const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,music,chooseHunter)
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')
-const reticles=new Reticles()
+const reticles=new Reticles(model => {
+  if (screen!==null || orientationBlocked) return
+  battle.selectLockTarget(model)
+})
 const controlsLayout=new ControlLayout(() => switchTo(layoutFrom))
 updateViewport()
 landscapePhone.addEventListener('change',updateViewport)

@@ -112,11 +112,16 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 .coarse #key-hint { display:none; }
 #reticles { position:absolute; inset:0; }
 .monster-reticle {
-  position:absolute; width:var(--reticle-size,22px); height:var(--reticle-size,22px); transform:translate(-50%,-50%);
-  box-sizing:border-box; object-fit:cover; border-radius:26%; border:1px solid #f1e2b8;
+  position:absolute; width:44px; height:44px; display:grid; place-items:center; padding:0;
+  transform:translate(-50%,-50%); pointer-events:auto; touch-action:none; border:0; background:none;
+}
+.monster-reticle img {
+  width:var(--reticle-size,22px); height:var(--reticle-size,22px); pointer-events:none;
+  object-fit:cover; border-radius:26%; border:1px solid #f1e2b8;
   box-shadow:0 0 0 1px #382b1e, 0 2px 4px #1a1716; opacity:.88;
 }
-.monster-reticle.focused { border:2px solid #ffedaa; opacity:1; z-index:1; }
+.monster-reticle.focused img { border:2px solid #ffedaa; opacity:1; box-shadow:0 0 0 2px #614429, 0 2px 5px #1a1716; }
+.monster-reticle.offscreen:not(.focused) img { border-style:dashed; }
 #numbers { position:absolute; inset:0; color:#fff4d3; }
 #numbers span { position:absolute; transform:translate(-50%,-50%); text-align:center; font-size:25px; font-weight:900; text-shadow: 0 2px 3px #512c1f, 1px 0 3px #442a19, -1px 0 3px #442a19; }
 #numbers span small { display:block; font-size:10px; }
