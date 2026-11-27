@@ -20,7 +20,7 @@ export class Battle {
   bossHp: number
   rage = false
   elapsed = 0
-  lock = false
+  private lockedMonster?: MonsterModel
   callout = ''
   chargeValue = 0
   reverseMovement = 0
@@ -98,7 +98,7 @@ export class Battle {
     this.p.set(this.arena.data.playerSpawn[0],0,this.arena.data.playerSpawn[1]); this.arena.resolve(this.p,.44)
     this.m.set(this.arena.data.monsterSpawn[0],0,this.arena.data.monsterSpawn[1]); this.arena.resolve(this.m,this.monster.data.radius)
     this.hp=this.weapon.hp; this.stamina=this.weapon.stamina; this.bossHp=this.monster.data.hp
-    this.playerYaw=Math.PI; this.bossYaw=0; this.rage=false; this.elapsed=0; this.outcome=null; this.outcomeTime=0; this.lock=false
+    this.playerYaw=Math.PI; this.bossYaw=0; this.rage=false; this.elapsed=0; this.outcome=null; this.outcomeTime=0; this.lockedMonster=undefined
     this.pt=this.bt=this.immune=this.staminaDelay=this.poise=this.legDamage=this.recentlyStaggered=0
     this.dodgeBuffer=0
     this.chargeValue=this.attackCount=this.rageSequence=this.waveTime=this.milestone=0
@@ -121,7 +121,7 @@ export class Battle {
       return
     }
     this.elapsed += dt
-    if (input.take('lock')) this.lock = !this.lock
+    if (input.take('lock')) this.lockedMonster = this.lockedMonster ? undefined : this.defaultLockTarget()
     this.pt += dt; this.bt += dt
     this.immune=Math.max(0,this.immune-dt)
     this.staminaDelay=Math.max(0,this.staminaDelay-dt)
@@ -133,10 +133,23 @@ export class Battle {
     if(this.flareModel) {
       if(!this.outcome) this.magic!.tick(dt,this.arena,(volume,damage)=>this.strikeWithMagic(volume,damage))
     } else this.strikeMonster()
+    if (this.lockedMonster && !this.reticleTargets.includes(this.lockedMonster)) {
+      this.lockedMonster = this.defaultLockTarget()
+    }
   }
 
-  get lockTarget() { return this.m }
+  get lock() { return this.lockedMonster !== undefined }
+  get selectedLockTarget() { return this.lockedMonster }
+  get lockTarget() { return this.aimedMonster.root.position }
   get reticleTargets(): readonly MonsterModel[] { return [this.monster] }
+
+  selectLockTarget(monster: MonsterModel) {
+    if (this.outcome || !this.reticleTargets.includes(monster)) return
+    this.lockedMonster = monster
+  }
+
+  protected defaultLockTarget() { return this.monster }
+  private get aimedMonster() { return this.lockedMonster ?? this.defaultLockTarget() }
   get rageLabel() { return '怒り' }
   get defeatDuration() { return 1.65 }
   protected get guarding() { return this.guard }
@@ -272,7 +285,8 @@ export class Battle {
     else this.fx.endBlade()
   }
   protected magicLockPoint() {
-    return this.magicAim.copy(this.monster.parts[0].center)
+    const monster=this.aimedMonster
+    return this.magicAim.copy(monster.parts[0]?.center ?? monster.root.position)
   }
 
   private strikeWithMagic(volume:HitVolume,damage:number,spell?:string) {

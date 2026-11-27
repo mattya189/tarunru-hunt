@@ -52,10 +52,15 @@ export class RevotenshiBattle extends Battle {
   override get reticleTargets() {
     return [this.monster, ...this.clones.filter(clone => clone.hp > 0).map(clone => clone.model)]
   }
-  override get lockTarget() {
-    const living=this.clones.filter(clone=>clone.hp>0)
-    if (!living.length) return this.m
-    return living.reduce((a,b)=>flatDistance(this.p,a.model.root.position)<=flatDistance(this.p,b.model.root.position)?a:b).model.root.position
+  protected override defaultLockTarget() {
+    let nearest = this.monster
+    let distance = Infinity
+    for (const { model, hp } of this.clones) {
+      if (hp <= 0) continue
+      const d = flatDistance(this.p, model.root.position)
+      if (d < distance) { nearest = model; distance = d }
+    }
+    return nearest
   }
 
   override reset() {
@@ -100,11 +105,6 @@ export class RevotenshiBattle extends Battle {
     if (!this.barrier) return true
     this.fx.hit(this.monster.parts[0].center,0,'無敵バリア',0xbe81ff,false,false)
     return false
-  }
-
-  protected override magicLockPoint() {
-    const target=this.lockTarget
-    return this.clones.find(clone=>clone.model.root.position===target)?.model.parts[0].center ?? super.magicLockPoint()
   }
 
   protected override strikeSecondary(damage:number,volume?:HitVolume,area=false) {
