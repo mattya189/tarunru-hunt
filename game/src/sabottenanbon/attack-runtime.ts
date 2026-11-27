@@ -53,7 +53,7 @@ export class AttackRuntime {
     return new AttackRuntime(arena,model,scene,thorn.scene,quality,profile,sound)
   }
 
-  private constructor(arena:Arena,model:MonsterModel,scene:Scene,thorn:import('three').Group,quality:Quality,
+  private constructor(arena:Arena,private readonly model:MonsterModel,scene:Scene,thorn:import('three').Group,quality:Quality,
     readonly profile:SabotCombatProfile,private readonly sound:PlaySound) {
     this.geometry=new ArenaGeometry(arena)
     this.read=createSocketReader(model.root,eventData.sockets)
@@ -112,7 +112,15 @@ export class AttackRuntime {
         this.advanceShots(at,start,dt,previous,hunter,hit)
         poseAt(run.timeline.id,event.time,Math.max(0,at-this.time))
         this.time=at
-        if (event.type==='thorn_burst') this.emit(run,event)
+        if (event.type==='thorn_burst') {
+          if (run.timeline.id==='attack_01' && event.id==='head_first') {
+            this.sound('sabottenanbon-voice-1',this.model.root.position)
+          }
+          this.emit(run,event)
+        }
+        if (run.timeline.id==='special_01' && run.eventIndex===1 && event.type==='thorn_charge') {
+          this.sound('sabottenanbon-voice-3',this.model.root.position)
+        }
         if (event.type==='detonate_thorns') {
           run.detonated=true
           for (const shot of this.shots) {
@@ -131,7 +139,9 @@ export class AttackRuntime {
       const breath=run.breath
       if (breath && !run.breathStarted && local>=breath.start) {
         run.breathStarted=true
-        this.sound('breath-fire',this.read(breath.attachment).position)
+        const origin=this.read(breath.attachment).position
+        if (run.timeline.id==='attack_05') this.sound('sabottenanbon-voice-2',origin)
+        this.sound('breath-fire',origin)
       }
       if (breath && local>=breath.start && local<breath.end && end+epsilon>=run.breathTime &&
           this.geometry.hitsBreath(this.geometry.breath(breath,local,this.read,false),hunter)) {
