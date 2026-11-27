@@ -3,6 +3,7 @@ import { kogobon } from './kogobon/config'
 import { revotenshi } from './revotenshi/config'
 import { sabottenanbon, sabottenanbonOvergrowth } from './sabottenanbon/config'
 import { shikouki } from './shikouki/config'
+import { raven } from './raven/config'
 
 export const difficulties = [1, 2, 3] as const
 export type Difficulty = typeof difficulties[number]
@@ -57,6 +58,15 @@ export const quests: readonly HuntQuest[] = [
     advice: [
       '通常個体より棘が多く、攻撃が速い。攻撃を欲張らず、予兆が出た時点で横に動く。',
       '足元に棘が残っているときは、ボスだけを見て追わず、爆発範囲の外に回ってから反撃する。',
+    ],
+  },
+  {
+    monster: raven, name: raven.name, difficulty: 2, icon: 'terracular-raven',
+    attacks: '双腕連撃、黒翼回転、光線、黒羽、装甲突進、邪眼刻印、千眼黒翼陣',
+    advice: [
+      '種族は異形機械種。翼を広げたら円の外へ。装甲を構えたら予告線を横に抜ける。',
+      '邪眼刻印は足元に固定される。光る円から歩いて出よう。怒り中は刻印と黒羽が増える。',
+      '千眼黒翼陣では順番に出る射線を外し、最後の衝撃波までに本体から離れる。衝撃波のあとは反撃しやすい。',
     ],
   },
   {
