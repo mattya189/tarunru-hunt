@@ -10,7 +10,7 @@ export interface RankingEntry {nickname:string; time_ms:number}
 export interface RankingRun {boss:string; hunter:HunterId; player:string; ticket:string}
 export interface RankingSave {time_ms:number; personal_best:boolean}
 
-async function rpc<T>(operation:string, body:Record<string,string>):Promise<T> {
+async function rpc<T>(operation:string, body:Record<string,string|null>):Promise<T> {
   const controller=new AbortController()
   const timeout=setTimeout(()=>controller.abort(),5000)
   try {
@@ -23,8 +23,16 @@ async function rpc<T>(operation:string, body:Record<string,string>):Promise<T> {
   } finally { clearTimeout(timeout) }
 }
 
+function existingPlayer() {
+  if(player) return player
+  try {
+    const saved=localStorage.getItem(playerKey)
+    if(saved && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(saved)) return saved
+  } catch { /* Private storage may be blocked. */ }
+}
+
 export async function monsterPlayerCounts() {
-  const rows=await rpc<{boss:string;player_count:number}[]>('monster_player_counts',{})
+  const rows=await rpc<{boss:string;player_count:number}[]>('monster_player_counts',{p_player:existingPlayer()??null})
   return new Map(rows.map(row=>[row.boss,row.player_count]))
 }
 
@@ -33,8 +41,7 @@ export function listScores(boss:string,hunter:HunterId) {
 }
 export async function beginRun(boss:string,hunter:HunterId):Promise<RankingRun> {
   if(!player) {
-    try { player=localStorage.getItem(playerKey)??undefined } catch { /* Private storage may be blocked. */ }
-    if(!player || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(player)) player=crypto.randomUUID()
+    player=existingPlayer()??crypto.randomUUID()
     try { localStorage.setItem(playerKey,player) } catch { /* Keep the current session playable. */ }
   }
   const ticket=await rpc<string>('begin_run',{p_boss:boss,p_hunter:hunter,p_player:player})
