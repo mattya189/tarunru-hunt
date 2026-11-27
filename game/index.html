@@ -50,9 +50,15 @@
       <div class="menu-card" id="panel"></div>
       <div class="site-mark">MEGANE <span>／</span> HUNT</div>
     </main>
-    <section id="control-editor" aria-labelledby="layout-title" hidden>
-      <h2 id="layout-title" tabindex="-1">操作配置</h2>
-      <p>操作をドラッグして移動。大きさも個別に調整できる。</p>
+    <section id="control-editor" aria-labelledby="layout-title" data-edge="top" hidden>
+      <div class="layout-header">
+        <h2 id="layout-title" tabindex="-1">操作配置</h2>
+        <div class="layout-panel-buttons">
+          <button type="button" class="secondary" id="layout-panel-side">パネルを下へ</button>
+          <button type="button" class="secondary" id="layout-panel-toggle" aria-expanded="true">たたむ</button>
+        </div>
+      </div>
+      <p>ボタンやスティックをドラッグして移動。</p>
       <label for="control-item">調整する操作</label>
       <select id="control-item"></select>
       <label for="control-size">大きさ</label>

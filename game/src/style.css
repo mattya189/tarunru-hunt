@@ -29,10 +29,10 @@ body:not([data-screen="battle"]) { touch-action: pan-y; }
 body[data-landscape="true"] #game { display:none; }
 #view { display: block; width: 100%; height: 100%; touch-action: none; }
 #shade { pointer-events: none; background: radial-gradient(ellipse at 55% 41%, transparent 42%, #15242157 100%); }
-body:not([data-screen="battle"]) #shade {
+body:not(:is([data-screen="battle"],[data-screen="layout"])) #shade {
   background:linear-gradient(0deg,#141b18fa,#141b18ec 28%,#141b184e 64%,#141b1800 84%);
 }
-body:is([data-screen="paused"],[data-screen="help"],[data-screen="victory"],[data-screen="failure"],[data-screen="rankings"],[data-screen="boss-rankings"],[data-screen="layout"]) #shade {
+body:is([data-screen="paused"],[data-screen="help"],[data-screen="victory"],[data-screen="failure"],[data-screen="rankings"],[data-screen="boss-rankings"]) #shade {
   background: linear-gradient(90deg,#101613f5,#101613ae 43%,#10161330),radial-gradient(ellipse at center,transparent,#10161376);
 }
 button { font: inherit; cursor: pointer; color: inherit; -webkit-tap-highlight-color: transparent; }
@@ -114,7 +114,8 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 #charge-meter.full i { background:#ffe5aa; }
 #charge-meter b { position:relative; display:block; font-size:9px; line-height:13px; text-shadow: 0 1px 4px #15150d; }
 #key-hint { position:absolute; bottom:var(--bottom); left:50%; transform:translateX(-50%); width:90%; text-align:center; padding:7px 13px; background:#17231aba; border:1px solid #d2bd8b64; color:#f8ebd2; font-size:10px; }
-.coarse #key-hint { display:none; }
+.coarse #key-hint, body[data-screen="layout"] #key-hint { display:none; }
+body[data-screen="layout"] .monster-reticle { pointer-events:none; }
 #reticles { position:absolute; inset:0; }
 .monster-reticle {
   position:absolute; width:44px; height:44px; display:grid; place-items:center; padding:0;
@@ -175,24 +176,27 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 }
 #touch button.held,#touch button.locked { background:#f1cc90; color:#1c2118; text-shadow:none; }
 
-#touch.editing {
-  transform:scale(var(--editor-scale,.7)); transform-origin:top center; outline:2px dashed #d4bf88ad;
-  outline-offset:4px; z-index:2;
-  background:linear-gradient(175deg,#b6c8a947,#10241b7a);
-}
+#touch.editing { z-index:2; }
 #touch.editing [data-control] { cursor:grab; }
 #touch.editing :is(button.selected-control,#stick-zone.selected-control #stick) {
   outline:3px solid #ffe0a2; outline-offset:4px;
 }
 #touch.editing .selected-control { z-index:3; }
 #control-editor {
-  position:absolute; bottom:0; left:0; right:0; z-index:3; display:grid; align-items:center;
-  grid-template-columns:auto 1fr; gap:8px 12px; padding:12px var(--right) var(--bottom) var(--left);
-  border-top:1px solid #d9bc84a0; background:#141e18f5; color:var(--paper);
+  position:absolute; top:var(--top); left:var(--left); right:var(--right); z-index:3; display:grid; align-items:center;
+  grid-template-columns:auto 1fr; gap:7px 10px; padding:9px 11px 11px;
+  border:1px solid #d9bc84a0; border-radius:9px; background:#141e18f2; color:var(--paper);
+  box-shadow:0 4px 16px #10140f8c;
 }
-#control-editor h2,#control-editor p,#control-editor .menu-actions { grid-column:1 / -1; margin:0; }
-#control-editor h2 { font-size:1.4rem; }
-#control-editor p,#control-editor label { font-size:.79rem; }
+#control-editor[data-edge="bottom"] { top:auto; bottom:var(--bottom); }
+#control-editor.dragging { visibility:hidden; }
+#control-editor[data-collapsed="true"] > :not(.layout-header) { display:none; }
+#control-editor .layout-header,#control-editor p,#control-editor .menu-actions { grid-column:1 / -1; margin:0; }
+.layout-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.layout-header h2 { margin:0; font-size:1.28rem; }
+.layout-panel-buttons { display:flex; gap:5px; }
+.layout-panel-buttons button { min-height:36px; padding:4px 8px; font-size:.71rem; white-space:nowrap; }
+#control-editor p,#control-editor label { font-size:.76rem; }
 #control-item {
   width:100%; min-height:34px; padding:5px 8px; background:#26372a; border:1px solid #ab986a;
   color:inherit; font:inherit;
