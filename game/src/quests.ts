@@ -6,7 +6,7 @@ import { sabottenanbon, sabottenanbonOvergrowth } from './sabottenanbon/config'
 import { shikouki } from './shikouki/config'
 import { raven } from './raven/config'
 import { kouencho } from './kouencho/config'
-import { summit, wanda } from './wanda/config'
+import { wanda } from './wanda/config'
 
 export const difficultyInfo = {
   1: { name: '★1', description: '初級' },
@@ -23,7 +23,6 @@ interface HuntQuest {
   name: string
   difficulty: Difficulty
   icon: string
-  field?: string
   species?: string
   englishName?: string
   attacks: string
@@ -101,7 +100,7 @@ export const quests: readonly HuntQuest[] = [
   },
   {
     monster: wanda, name: wanda.name, difficulty: 4, icon: 'wanda-butterfly-king',
-    field: summit.name, species: '天翼皇種 · 風／重力', englishName: 'Wanda Butterfly King',
+    species: '天翼皇種 · 風／重力', englishName: 'Wanda Butterfly King',
     attacks: '天翼刃、皇刃十字斬、天空爆撃、重力吸引、三連天空波、天断光線、超高速降下斬撃、追跡暴風渦、必殺技「天空崩壊」「天皇終焉陣」',
     advice: [
       '地上の青緑の影を攻撃すれば、上空の本体に届く。影をタップしてロックオンできる。',

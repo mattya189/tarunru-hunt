@@ -1,14 +1,15 @@
 import {
-  BoxGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, DirectionalLight,
+  Box3, BoxGeometry, CanvasTexture, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight,
   DodecahedronGeometry, FogExp2, Group, HemisphereLight, InstancedMesh, Mesh, MeshStandardMaterial,
   Object3D, PlaneGeometry, RepeatWrapping, Scene, SphereGeometry, SRGBColorSpace, Vector3, BufferAttribute, InstancedBufferAttribute, DynamicDrawUsage,
-  ShaderMaterial, BackSide,
+  ShaderMaterial, BackSide, Material, Matrix4, Texture, type WebGLRenderer,
 } from 'three'
-import type { FieldData } from './config'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
+import type { Obstacle, RegisteredField } from './fields'
 import { clamp, damp } from './math'
 import { buildSummit } from './wanda/summit'
 
-export interface Obstacle { x: number; z: number; radius: number; height: number }
 type Prop = [number, number, number, number, number, number, number, Color]
 interface CameraProp { x: number; z: number; radius: number; bottom: number; top: number }
 interface CameraBatch { props: CameraProp[]; opacity: InstancedBufferAttribute }
@@ -55,23 +56,163 @@ export class Arena {
   readonly obstacles: Obstacle[] = []
   readonly sun = new DirectionalLight(0xffd3a0, 2.5)
   get radius() { return this.data.radius }
-  height = earth
+  readonly height: (x: number, z: number) => number
+  private readonly scenery = new Group()
   private cameraBatches: CameraBatch[] = []
+  private prepared = false
 
-  constructor(scene: Scene, readonly data: FieldData) {
-    scene.add(this.root)
-    this.sun.position.set(-25, 35, -30)
+  constructor(readonly data: RegisteredField) {
+    this.root.add(this.scenery)
+    const { landscape, lighting } = data
+    this.height = landscape === 'shore' ? earth : () => typeof landscape === 'object' ? landscape.floor : 0
+    this.sun.position.set(...(lighting.sun?.position ?? [-25, 35, -30]))
+    if (lighting.sun) {
+      this.sun.color.setHex(lighting.sun.color)
+      this.sun.intensity = lighting.sun.intensity
+    }
     this.sun.castShadow = true
     Object.assign(this.sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 100 })
     this.sun.shadow.normalBias = .045
     this.sun.shadow.bias = -.00015
-    const summit=data.landscape==='summit'
-    this.root.add(new HemisphereLight(summit?0xdad8ff:0xc9e4ec,summit?0x66577b:0x665044,2.05),this.sun)
-    if(summit) {
-      this.height=()=>0
-      buildSummit(this.root,data.radius)
-      return
+    this.root.add(new HemisphereLight(lighting.sky, lighting.ground, lighting.fill), this.sun)
+  }
+
+  async prepare() {
+    if (this.prepared) return false
+    const landscape = this.data.landscape
+    this.obstacles.push(...(this.data.obstacles ?? []))
+    try {
+      if (landscape === 'shore') this.buildShore()
+      else if (landscape === 'summit') buildSummit(this.scenery, this.radius)
+      else {
+        const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
+        const { scene } = await loader.loadAsync(import.meta.env.BASE_URL + landscape.path)
+        scene.scale.setScalar(landscape.scale)
+        scene.position.y = landscape.floor
+        this.scenery.add(scene)
+        this.prepareArchitecture(scene, landscape.floor)
+        if (landscape.surround !== undefined) {
+          const ground = new Mesh(new CircleGeometry(112, 48).rotateX(-Math.PI / 2),
+            new MeshStandardMaterial({ color: landscape.surround, roughness: 1 }))
+          ground.position.y = landscape.floor - .34
+          this.scenery.add(ground)
+        }
+      }
+    } catch (error) {
+      this.releaseScenery()
+      throw error
     }
+    this.prepared = true
+    return true
+  }
+
+  private prepareArchitecture(scene: Group, floor: number) {
+    scene.updateMatrixWorld(true)
+    const walls: Mesh[] = []
+    scene.traverse(object => {
+      if (!(object instanceof Mesh)) return
+      object.receiveShadow = true
+      object.geometry.computeBoundingBox()
+      const world = new Box3().setFromObject(object)
+      if (world.max.y <= floor + .1) return
+      object.castShadow = true
+      walls.push(object)
+    })
+    const matrix = new Matrix4(), bounds = new Box3(), center = new Vector3(), size = new Vector3()
+    for (const object of walls) {
+      // Keep singleton features (such as the entrance) on the same fade path as repeated columns.
+      let wall: InstancedMesh
+      if (object instanceof InstancedMesh) wall = object
+      else {
+        wall = new InstancedMesh(object.geometry, object.material, 1)
+        wall.setMatrixAt(0, matrix.identity())
+        wall.position.copy(object.position)
+        wall.quaternion.copy(object.quaternion)
+        wall.scale.copy(object.scale)
+        wall.castShadow = wall.receiveShadow = true
+        for (const child of [...object.children]) wall.add(child)
+        object.parent!.add(wall)
+        object.removeFromParent()
+        wall.updateMatrixWorld(true)
+      }
+      if (wall.geometry.hasAttribute('cameraOpacity')) wall.geometry = wall.geometry.clone()
+      const props: CameraProp[] = []
+      for (let i = 0; i < wall.count; i++) {
+        wall.getMatrixAt(i,matrix)
+        bounds.copy(wall.geometry.boundingBox!).applyMatrix4(matrix.premultiply(wall.matrixWorld))
+        bounds.getCenter(center); bounds.getSize(size)
+        props.push({ x: center.x, z: center.z, radius: Math.hypot(size.x,size.z)*.5,
+          bottom: bounds.min.y, top: bounds.max.y })
+      }
+      this.fadeBatch(wall, props)
+    }
+  }
+
+  private fadeBatch(mesh: InstancedMesh, props: CameraProp[]) {
+    const opacity = new InstancedBufferAttribute(new Float32Array(props.length).fill(1),1)
+    opacity.setUsage(DynamicDrawUsage)
+    mesh.geometry.setAttribute('cameraOpacity',opacity)
+    this.cameraBatches.push({ props, opacity })
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      material.alphaHash = true
+      material.onBeforeCompile = shader => {
+        shader.vertexShader = shader.vertexShader.replace('#include <common>',
+          '#include <common>\nattribute float cameraOpacity;\nvarying float vCameraOpacity;')
+          .replace('#include <begin_vertex>','#include <begin_vertex>\nvCameraOpacity = cameraOpacity;')
+        shader.fragmentShader = shader.fragmentShader.replace('#include <common>',
+          '#include <common>\nvarying float vCameraOpacity;')
+          .replace('#include <alphahash_fragment>',
+            'if (vCameraOpacity < 0.999 && vCameraOpacity < getAlphaHashThreshold(vPosition)) discard;')
+      }
+    }
+  }
+
+  warmTextures(renderer: WebGLRenderer) {
+    for (const texture of this.textures()) renderer.initTexture(texture)
+  }
+
+  private textures() {
+    const textures = new Set<Texture>()
+    this.scenery.traverse(object => {
+      if (!(object instanceof Mesh)) return
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        for (const value of Object.values(material)) if (value instanceof Texture) textures.add(value)
+      }
+    })
+    return textures
+  }
+
+  deactivate() {
+    this.root.removeFromParent()
+    this.sun.shadow.dispose()
+    this.sun.shadow.map = null
+    if (this.data.landscape !== 'shore') this.releaseScenery()
+  }
+
+  private releaseScenery() {
+    const geometries = new Set<Mesh['geometry']>()
+    const materials = new Set<Material>()
+    const images = new Set<ImageBitmap>()
+    for (const texture of this.textures()) {
+      if (typeof ImageBitmap !== 'undefined' && texture.image instanceof ImageBitmap) images.add(texture.image)
+      texture.dispose()
+    }
+    for (const image of images) image.close()
+    this.scenery.traverse(object => {
+      if (!(object instanceof Mesh)) return
+      geometries.add(object.geometry)
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) materials.add(material)
+      if (object instanceof InstancedMesh) object.dispose()
+    })
+    for (const geometry of geometries) geometry.dispose()
+    for (const material of materials) material.dispose()
+    this.scenery.clear()
+    this.cameraBatches = []
+    this.obstacles.length = 0
+    this.prepared = false
+  }
+
+  private buildShore() {
     const sky = new Mesh(new SphereGeometry(125, 24, 16), new ShaderMaterial({
       side: BackSide, depthWrite: false, fog: false,
       vertexShader: 'varying vec3 dir; void main(){dir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
@@ -92,7 +233,7 @@ export class Arena {
         }`
     }))
     sky.frustumCulled = false
-    this.root.add(sky)
+    this.scenery.add(sky)
     const plane = new PlaneGeometry(96, 96, 96, 96).rotateX(-Math.PI / 2)
     const pos = plane.attributes.position
     const colors = []
@@ -108,10 +249,10 @@ export class Arena {
     plane.computeVertexNormals()
     const floor = new Mesh(plane, new MeshStandardMaterial({ vertexColors: true, map: sandTexture(), roughness: 1 }))
     floor.receiveShadow = true
-    this.root.add(floor)
+    this.scenery.add(floor)
     const ocean = new Mesh(new PlaneGeometry(250, 150).rotateX(-Math.PI / 2), new MeshStandardMaterial({ color: '#467e85', roughness: .45, metalness: .17 }))
     ocean.position.set(0, -.4, -102)
-    this.root.add(ocean)
+    this.scenery.add(ocean)
     let seed = 445
     const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296)
     const rocks: Prop[] = [], grass: Prop[] = [], trunks: Prop[] = [], crowns: Prop[] = [], waves: Prop[] = []
@@ -157,26 +298,10 @@ export class Arena {
       if (cameraFade) {
         g.computeBoundingBox()
         const bounds=g.boundingBox!
-        const opacity=new InstancedBufferAttribute(new Float32Array(props.length).fill(1),1)
-        opacity.setUsage(DynamicDrawUsage)
-        g.setAttribute('cameraOpacity',opacity)
-        this.cameraBatches.push({
-          props:props.map(([x,y,z,sx,sy,sz])=>({
-            x,z,radius:Math.max(sx,sz)*Math.max(bounds.max.x,bounds.max.z),
-            bottom:y+sy*bounds.min.y,top:y+sy*bounds.max.y,
-          })),
-          opacity,
-        })
-        mesh.material.alphaHash=true
-        mesh.material.onBeforeCompile=shader=>{
-          shader.vertexShader=shader.vertexShader.replace('#include <common>',
-            '#include <common>\nattribute float cameraOpacity;\nvarying float vCameraOpacity;')
-            .replace('#include <begin_vertex>','#include <begin_vertex>\nvCameraOpacity = cameraOpacity;')
-          shader.fragmentShader=shader.fragmentShader.replace('#include <common>',
-            '#include <common>\nvarying float vCameraOpacity;')
-            .replace('#include <alphahash_fragment>',
-              'if (vCameraOpacity < 0.999 && vCameraOpacity < getAlphaHashThreshold(vPosition)) discard;')
-        }
+        this.fadeBatch(mesh,props.map(([x,y,z,sx,sy,sz])=>({
+          x,z,radius:Math.max(sx,sz)*Math.max(bounds.max.x,bounds.max.z),
+          bottom:y+sy*bounds.min.y,top:y+sy*bounds.max.y,
+        })))
       }
       const obj = new Object3D()
       props.forEach(([x,y,z,sx,sy,sz,angle,color], i) => {
@@ -184,7 +309,7 @@ export class Arena {
         mesh.setMatrixAt(i,obj.matrix); mesh.setColorAt(i,color)
       })
       mesh.castShadow = shadow; mesh.receiveShadow = shadow
-      this.root.add(mesh)
+      this.scenery.add(mesh)
     }
     batch(new DodecahedronGeometry(1, 0), rocks, true, true)
     batch(new CylinderGeometry(.52, 1, 1, 6), trunks, true, true)
@@ -193,13 +318,12 @@ export class Arena {
     batch(new BoxGeometry(1,1,1), waves, false)
   }
   activate(scene:Scene) {
-    const summit=this.data.landscape==='summit'
-    scene.background=new Color(summit?'#a39aba':'#a0afb0')
-    scene.fog=new FogExp2(summit?'#a598c3':'#a6ada5',summit?.012:.018)
-    this.root.visible=true
+    scene.background = new Color(this.data.background)
+    scene.fog = new FogExp2(this.data.fog.color,this.data.fog.density)
+    scene.add(this.root)
   }
   resolve(pos: Vector3, radius: number) {
-    const limit = this.radius - radius
+    const limit = Math.max(0,this.radius - radius)
     const clampToArena = () => {
       const r=Math.hypot(pos.x,pos.z)
       if(r>limit) { pos.x*=limit/r; pos.z*=limit/r }

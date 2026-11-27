@@ -57,6 +57,8 @@ export class BattleAudio {
   private sfx?: GainNode
   private track?: HTMLAudioElement
   private musicOutput?: MediaElementAudioSourceNode
+  private ambiance?: { path: string; buffer: AudioBuffer; volume: number }
+  private ambientVoice?: AudioBufferSourceNode
   private pending?: Map<SoundCue, Promise<ArrayBuffer | undefined>>
   private decoding = false
   private readonly buffers = new Map<SoundCue, AudioBuffer>()
@@ -83,7 +85,7 @@ export class BattleAudio {
 
   setEnabled(enabled: boolean) {
     this.enabled = enabled
-    if (!enabled) this.pauseMusic()
+    if (!enabled) this.track?.pause()
     try { localStorage.setItem(bgmKey, enabled ? 'on' : 'off') } catch { /* Optional preference. */ }
   }
 
@@ -218,9 +220,42 @@ export class BattleAudio {
     this.resume()
   }
 
+  async prepareAmbiance(setting?: { path: string; volume: number }) {
+    if (this.ambiance?.path === setting?.path) return
+    this.ambiance = undefined
+    const context = this.context
+    if (!setting || !context) return
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    try {
+      const response = await fetch(import.meta.env.BASE_URL + setting.path, { signal: controller.signal })
+      if (response.ok) {
+        const buffer = await context.decodeAudioData(await response.arrayBuffer())
+        this.ambiance = { ...setting, buffer }
+      }
+    } catch { /* The arena remains playable without its ambient loop. */ }
+    finally { clearTimeout(timeout) }
+  }
+
+  private resumeAmbiance() {
+    const context = this.context, ambiance = this.ambiance
+    if (!context || !ambiance || this.ambientVoice) return
+    const voice = context.createBufferSource()
+    const gain = context.createGain()
+    voice.buffer = ambiance.buffer
+    voice.loop = true
+    gain.gain.value = ambiance.volume
+    voice.connect(gain).connect(this.sfx!)
+    voice.onended = () => { voice.disconnect(); gain.disconnect() }
+    this.ambientVoice = voice
+    voice.start()
+  }
+
   resume() {
     this.unlock()
-    if (!this.enabled || document.hidden) return
+    if (document.hidden) return
+    this.resumeAmbiance()
+    if (!this.enabled) return
     if (!this.track) {
       this.track = new Audio(base + 'shadow-protocol.mp3')
       this.track.loop = true
@@ -236,5 +271,9 @@ export class BattleAudio {
     if (this.track.paused) void this.track.play().catch(() => {})
   }
 
-  pauseMusic() { this.track?.pause() }
+  pauseMusic() {
+    this.track?.pause()
+    this.ambientVoice?.stop()
+    this.ambientVoice = undefined
+  }
 }

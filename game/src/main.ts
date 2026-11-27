@@ -4,8 +4,9 @@ import { BattleAudio } from './battle-audio'
 import { HuntCamera } from './camera'
 import { ContactShadow } from './contact'
 import { ControlLayout } from './control-layout'
-import { coast, greatsword, tidebeast, type MonsterData } from './config'
+import { greatsword, tidebeast, type MonsterData } from './config'
 import { Effects } from './effects'
+import { defaultFieldId, fieldFor, type FieldId } from './fields'
 import { EmperorBattle } from './emperor/battle'
 import { emperor } from './emperor/config'
 import { FlareModel } from './flare/model'
@@ -33,7 +34,7 @@ import { raven } from './raven/config'
 import { KouenchoBattle } from './kouencho/battle'
 import { kouencho } from './kouencho/config'
 import { WandaBattle } from './wanda/battle'
-import { summit, wanda } from './wanda/config'
+import { wanda } from './wanda/config'
 import './style.css'
 
 const game=document.querySelector<HTMLElement>('#game')!
@@ -62,14 +63,14 @@ let startCuePending=false
 let renderer: WebGLRenderer
 let scene: Scene
 let arena: Arena
-let shore: Arena
-let mountaintop: Arena | undefined
+const fields=new Map<FieldId,Arena>()
 let bloom: BreathBloom | undefined
 let hunter: HunterModel
 const battles=new Map<string,Battle>()
 let camera: HuntCamera
 let fx: Effects
 let battle: Battle
+let titleBattle: Battle
 let rankingRun: RankingRun | undefined
 let rankingResult: Promise<number|null> | undefined
 let hunterShadow: ContactShadow, bossShadow: ContactShadow
@@ -114,12 +115,25 @@ function switchTo(next: Screen | null) {
   if(next==='victory') audio.play('quest-clear')
   if(next==='failure') audio.play('quest-failed')
 }
-async function loadBattle(data:MonsterData) {
-  const cached=battles.get(data.id)
+function arenaFor(id?:FieldId) {
+  const config=fieldFor(id)
+  let field=fields.get(config.id)
+  if(!field) {
+    field=new Arena(config)
+    fields.set(config.id,field)
+  }
+  return field
+}
+
+function battleKey(monster:MonsterData, field:Arena) {
+  return `${monster.id}:${field.data.id}`
+}
+
+async function loadBattle(data:MonsterData, field:Arena, fieldReady?:Promise<boolean>) {
+  const key=battleKey(data,field)
+  const cached=battles.get(key)
   if(cached) return cached
-  const monster=await MonsterModel.load(data)
-  const field=data.id===wanda.id ? mountaintop ??= new Arena(scene,summit) : shore
-  field.root.visible=field===arena
+  const [monster]=await Promise.all([MonsterModel.load(data),fieldReady])
   let next:Battle
   const profile=sabotProfiles.get(data.id)
   if(profile) {
@@ -158,14 +172,14 @@ async function loadBattle(data:MonsterData) {
     scene.add(encounter.visuals.root)
     next=encounter
   } else next=new Battle(monster,hunter,field,fx,greatsword)
-  battles.set(data.id,next)
+  battles.set(key,next)
   return next
 }
 
 function updateArena() {
-  const next=battle instanceof WandaBattle ? mountaintop! : shore
+  const next=battle.field
   if(next!==arena) {
-    arena.root.visible=false
+    arena.deactivate()
     arena=next
     arena.activate(scene)
     camera.setArena(arena)
@@ -197,10 +211,14 @@ async function startHunt() {
   // Safari requires the first play() call inside the Start/Retry tap.
   audio.start()
   try {
-    const [next,model]=await Promise.all([
-      loadBattle(selectedMonster),
+    const field=arenaFor(selectedMonster.fieldId)
+    const fieldReady=field.prepare()
+    const [next,model,fieldLoaded]=await Promise.all([
+      loadBattle(selectedMonster,field,fieldReady),
       selectedHunter==='flare'?flareModel ?? FlareModel.load():undefined,
+      fieldReady,
       audio.ready(),
+      audio.prepareAmbiance(field.data.ambiance),
     ])
     if(model) flareModel=model
     if(battle!==next) {
@@ -210,17 +228,21 @@ async function startHunt() {
       if(battle instanceof RavenBattle || battle instanceof KouenchoBattle) {
         battle.visuals.dispose()
         battle.monster.dispose()
-        battles.delete(battle.monster.data.id)
+        battles.delete(battleKey(battle.monster.data,battle.field))
       }
       battle=next
       scene.add(battle.monster.root)
     }
     battle.selectHunter(model)
     updateArena()
+    battle.reset(); camera.reset(battle)
+    if(fieldLoaded && typeof field.data.landscape==='object') {
+      field.warmTextures(renderer)
+      await renderer.compileAsync(scene,camera.camera)
+    }
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
     rankingRun=await beginRun(battle.monster.data.id,selectedHunter).catch(()=>undefined)
     rankingResult=undefined
-    battle.reset(); camera.reset(battle)
     huntStarted=performance.now()
     startCuePending=true
     switchTo(null)
@@ -234,10 +256,11 @@ function command(action: Command) {
   switch(action) {
     case 'title':
       huntStarted=undefined; startCuePending=false
+      void audio.prepareAmbiance()
       battle.selectHunter(); battle.reset()
-      if(battle instanceof WandaBattle) {
+      if(battle.field.data.id!==defaultFieldId) {
         scene.remove(battle.monster.root)
-        battle=battles.get(tidebeast.id)!
+        battle=titleBattle
         battle.reset()
         scene.add(battle.monster.root)
         updateArena()
@@ -388,12 +411,13 @@ async function init() {
     renderer.shadowMap.enabled=true; renderer.shadowMap.type=PCFShadowMap
     renderer.shadowMap.autoUpdate=false
     scene=new Scene()
-    shore=arena=new Arena(scene,coast)
-    shore.activate(scene)
+    arena=arenaFor()
+    await arena.prepare()
+    arena.activate(scene)
     fx=new Effects(audio); scene.add(fx.root)
     camera=new HuntCamera(arena)
     hunter=new HunterModel()
-    battle=await loadBattle(tidebeast)
+    battle=titleBattle=await loadBattle(tidebeast,arena)
     hunterShadow=new ContactShadow(.92,.64); bossShadow=new ContactShadow(1.95,.72)
     scene.add(hunter.root,battle.monster.root,hunterShadow.mesh,bossShadow.mesh)
     camera.reset(battle)
