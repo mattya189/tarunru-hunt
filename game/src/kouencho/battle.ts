@@ -225,8 +225,9 @@ export class KouenchoBattle extends Battle {
       if(progress<1) return
       this.setBoss('attack')
       if(id==='shot') this.launchShots()
-      if(id==='feathers') this.armFeathers()
-      if(id==='breath') this.breathOrigin()
+      if(id==='feathers') { this.fx.sound('feather-volley',this.m); this.armFeathers() }
+      if(id==='breath') { this.breathOrigin(); this.fx.sound('breath-fire',this.muzzle) }
+      if(id==='spin' || id==='dive') this.fx.sound(id==='spin'?'beast-spin':'wing-dive',this.m)
     }
 
     if(this.bossState==='attack') {
@@ -339,6 +340,7 @@ export class KouenchoBattle extends Battle {
       shot.show(yaw)
     })
     this.fx.burst(muzzle,0xffab33,false,.33)
+    this.fx.sound('flame-shot',muzzle)
   }
 
   private flyShots(dt: number) {
@@ -394,6 +396,7 @@ export class KouenchoBattle extends Battle {
         mark.armed=false
         this.fx.ring(mark.center,.42,featherRadius,.33,0xffa434)
         this.fx.burst(mark.center,fireColor,true,.56)
+        this.fx.sound('thorn-explode',mark.center,.83)
         if(flatDistance(mark.center,this.p)<=featherRadius) this.hurt(fireAttacks.feathers.damage,mark.center)
       }
     }
@@ -427,6 +430,7 @@ export class KouenchoBattle extends Battle {
         this.waveStart.copy(this.m)
         this.waveRange=Math.hypot(this.m.x,this.m.z)+this.arena.radius+fireWave.halfWidth
         this.fx.burst(this.waveStart,0xffa32a,true,1.25)
+        this.fx.sound('fire-wave',this.waveStart)
         this.visuals.warning.hide()
       }
       const radius=this.waveRange*progressOf(time,fireWave.travel)

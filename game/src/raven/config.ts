@@ -9,6 +9,7 @@ export const ravenMotions = {
 } satisfies Partial<Record<Motion, {clip:string}>>
 
 export const raven: MonsterData = {
+  metallic: true,
   id:'terracular-raven', name:'テラキュラーレイヴン', model:'models/raven/raven.glb',
   hp:2400, speed:3, power:1, scale:.66, footOffset:.03, yawOffset:0, radius:1.02,
   rigidMeshes:true, groundRigid:true,

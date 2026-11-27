@@ -61,6 +61,11 @@ p { color: var(--muted); font-size: .94rem; margin: 12px 0 22px; line-height: 1.
 .settings button { min-width: 36px; min-height: 35px; background: #252d248a; border: 1px solid #d9bd8345; }
 .settings button[aria-pressed="true"] { color: var(--ink); background: #d7b67f; }
 .bgm-settings button { min-width:44px; min-height:44px; }
+.volume-settings { display:grid; flex-basis:100%; max-width:320px; gap:3px; }
+.volume-setting { display:grid; grid-template-columns:5.2rem minmax(72px,1fr) 4ch; align-items:center; column-gap:10px; font-size:.75rem; color:#d0c7b0; }
+.volume-setting input { width:100%; min-height:34px; margin:0; accent-color:var(--gold); touch-action:manipulation; }
+.volume-setting output { text-align:right; font-variant-numeric:tabular-nums; }
+
 dl { display: flex; flex-direction: column; gap: 1px; max-width: 335px; margin: 19px 0 12px; }
 dl div { display: flex; padding: 8px 0; border-bottom: 1px solid #dbc89338; gap: 15px; align-items: baseline; }
 dt { min-width: 65px; font-size: .79rem; color: #c3b391; }

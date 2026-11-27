@@ -123,6 +123,7 @@ export class KogobonBattle extends Battle {
     const attack = attacks[id]
     const distance = flatDistance(this.impactCenter, this.p)
     const angle = Math.abs(wrap(yawTo(this.impactCenter, this.p) - this.bossYaw))
+    this.fx.sound(id === 'scream' ? 'air-pressure' : 'elastic-slam', this.impactCenter, id === 'jump' ? 1 : .88)
     if (id !== 'scream') this.fx.ring(this.impactCenter, .45, attack.radius, .36, 0xffa263)
     if (distance > attack.radius || distance > .01 && angle > attack.halfAngle) return
 

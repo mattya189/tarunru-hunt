@@ -63,6 +63,9 @@ export class FlareModel {
       }
     }
     if(time!==undefined) next.time=Math.min(time,next.getClip().duration)
+    const before=next.time
     this.mixer.update(time===undefined?dt:0)
+    const duration=next.getClip().duration
+    return name==='Run' && Math.floor(before * 2 / duration + .18) !== Math.floor(next.time * 2 / duration + .18)
   }
 }

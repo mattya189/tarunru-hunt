@@ -1,6 +1,6 @@
 import type { MonsterData, WeaponData } from './config'
 import type { Battle } from './battle'
-import type { BattleMusic } from './battle-music'
+import type { BattleAudio } from './battle-audio'
 import { maxEnergy } from './flare/combat'
 import { clamp } from './math'
 import { bestClearTime } from './clear-times'
@@ -41,8 +41,16 @@ export class Interface {
   private current: Screen | null = null
   private cache = new Map<HTMLElement,string>()
 
-  constructor(private data: MonsterData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private chooseDifficulty: (level:Difficulty) => void, private choose: (id:string) => void, private music:BattleMusic, private chooseHunter:(id:string)=>void) {
+  constructor(private data: MonsterData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private chooseDifficulty: (level:Difficulty) => void, private choose: (id:string) => void, private audio:BattleAudio, private chooseHunter:(id:string)=>void) {
     document.documentElement.classList.toggle('coarse',coarse)
+    this.panel.addEventListener('input',event=>{
+      const slider=event.target as HTMLInputElement
+      const bus=slider.dataset.volume
+      if(bus!=='bgm' && bus!=='sfx') return
+      this.audio.setVolume(bus,slider.valueAsNumber)
+      const display=this.panel.querySelector<HTMLOutputElement>(`output[for="${slider.id}"]`)
+      if(display) display.value=`${this.audio.volume(bus)}%`
+    })
     this.panel.addEventListener('click',e => {
       const button=(e.target as HTMLElement).closest<HTMLButtonElement>('button')
       if (!button) return
@@ -56,7 +64,7 @@ export class Interface {
         for (const el of this.panel.querySelectorAll<HTMLButtonElement>('[data-quality]')) el.setAttribute('aria-pressed',String(el===button))
       }
       if (button.dataset.bgm) {
-        this.music.setEnabled(button.dataset.bgm==='on')
+        this.audio.setEnabled(button.dataset.bgm==='on')
         for(const el of this.panel.querySelectorAll<HTMLButtonElement>('[data-bgm]')) el.setAttribute('aria-pressed',String(el===button))
       }
     })
@@ -82,8 +90,15 @@ export class Interface {
     this.keyHint.textContent=`WASD 移動　 J ${flare?'魔弾':'攻撃'}　 K ${flare?'フレア':'溜め'}　 Space 回避　 L ガード　 Q ロックオン`
     if (!screen || screen==='layout') return
     const button = (cmd: Command, name: string, primary=false) => `<button class="${primary?'primary':'secondary'}" data-cmd="${cmd}">${name}${primary?'<span aria-hidden="true">→</span>':''}</button>`
+    const volume = (bus: 'bgm' | 'sfx', label: string) => {
+      const value=this.audio.volume(bus)
+      return `<div class="volume-setting"><label for="volume-${bus}">${label}</label>
+        <input type="range" id="volume-${bus}" data-volume="${bus}" min="0" max="100" step="1" value="${value}">
+        <output for="volume-${bus}">${value}%</output></div>`
+    }
     const settings = `<div class="options"><div class="settings"><span>画質</span><div role="group" aria-label="画質">${(Object.keys(qualityLabels) as Quality[]).map(q=>`<button data-quality="${q}" aria-pressed="${q===quality}">${qualityLabels[q]}</button>`).join('')}</div></div>
-      <div class="settings bgm-settings"><span>戦闘BGM</span><div role="group" aria-label="戦闘BGM"><button data-bgm="on" aria-pressed="${this.music.enabled}">あり</button><button data-bgm="off" aria-pressed="${!this.music.enabled}">なし</button></div></div></div>`
+      <div class="settings bgm-settings"><span>戦闘BGM</span><div role="group" aria-label="戦闘BGM"><button data-bgm="on" aria-pressed="${this.audio.enabled}">あり</button><button data-bgm="off" aria-pressed="${!this.audio.enabled}">なし</button></div></div>
+      <div class="volume-settings">${volume('bgm','BGM音量')}${volume('sfx','効果音音量')}</div></div>`
     if (screen==='loading') this.panel.innerHTML='<div class="eyebrow">MEGANE HUNT</div><h1>メガネハント</h1><p role="status">闘技場を読み込み中…</p><div class="loading-line"></div>'
     if (screen==='title') this.panel.innerHTML=`
       <div class="eyebrow">3D モンスター討伐</div><h1>メガネ<em>ハント</em></h1>
