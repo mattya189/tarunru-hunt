@@ -106,7 +106,7 @@ export class Interface {
       <h2>★${difficulty}のモンスター</h2>
       <ul class="quest-list" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
         `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<span class="quest-name"><strong>${quest.name}</strong>${count(quest.monster.id)}</span><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
-      <p class="player-count-note">挑戦者数はブラウザ単位で集計。</p>
+      <p class="player-count-note">挑戦者数は閲覧中のブラウザを除いて集計。</p>
       <div class="menu-actions">${button('difficulty','戻る')}</div>`
     if (screen==='rankings' || screen==='boss-rankings') {
       const dedicated=screen==='boss-rankings'
@@ -116,7 +116,7 @@ export class Interface {
           <label for="ranking-boss">討伐対象</label>
           <select id="ranking-boss" class="ranking-field">${quests.map(quest=>
             `<option value="${quest.monster.id}"${quest.monster.id===this.data.id?' selected':''}>${quest.name}</option>`).join('')}</select>`}
-        <p class="player-count-note">${count(selected.monster.id)}</p>
+        <p class="player-count-note">${count(selected.monster.id)} · このブラウザを除く</p>
         <div class="ranking-hunters settings"><div role="group" aria-label="ランキングの部門">${(Object.keys(hunterLabels) as HunterId[]).map(id=>
           `<button type="button" data-ranking-hunter="${id}" aria-pressed="${id===hunter}">${hunterLabels[id]}</button>`).join('')}</div></div>
         <div id="ranking-list" aria-live="polite"></div>
@@ -148,7 +148,7 @@ export class Interface {
       const best=bestClearTime(this.data.id,hunter)
       this.panel.innerHTML=`
         <div class="quest-heading">${icon(selected)}<div><span class="quest-level">★${selected.difficulty}</span><h2>${selected.name}</h2></div></div>
-        <p class="player-count-note">${count(this.data.id)} · ブラウザ単位</p>
+        <p class="player-count-note">${count(this.data.id)} · このブラウザを除く</p>
         <dl class="quest-facts">
           <div><dt>クリアタイム<span>この端末の自己ベスト · ${hunterLabels[hunter]}</span></dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>
           <div><dt>主な攻撃</dt><dd>${selected.attacks}</dd></div>
