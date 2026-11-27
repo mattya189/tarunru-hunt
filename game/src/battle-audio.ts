@@ -13,6 +13,10 @@ const cues = {
   'sabottenanbon-voice-1': .76, 'sabottenanbon-voice-2': .78, 'sabottenanbon-voice-3': .84,
   'sabottenanbon-voice-4': .78, 'sabottenanbon-voice-5': .83, 'sabottenanbon-voice-6': .75,
   'sabottenanbon-voice-7': .80,
+  'wanda-flap': .57, 'wanda-blade': .65, 'wanda-slash': .76, 'wanda-fall': .65,
+  'wanda-burst': .74, 'wanda-gravity': .71, 'wanda-wave': .80, 'wanda-beam': .74,
+  'wanda-dive': .73, 'wanda-vortex': .67, 'wanda-charge': .75, 'wanda-ultimate': .85,
+  'wanda-rage': .80, 'wanda-hit': .68, 'wanda-death': .80,
   'quest-start': .60, 'quest-clear': .72, 'quest-failed': .64,
 } as const
 

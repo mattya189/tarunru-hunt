@@ -1,11 +1,12 @@
 import {
   BoxGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, DirectionalLight,
-  DodecahedronGeometry, FogExp2, HemisphereLight, InstancedMesh, Mesh, MeshStandardMaterial,
+  DodecahedronGeometry, FogExp2, Group, HemisphereLight, InstancedMesh, Mesh, MeshStandardMaterial,
   Object3D, PlaneGeometry, RepeatWrapping, Scene, SphereGeometry, SRGBColorSpace, Vector3, BufferAttribute, InstancedBufferAttribute, DynamicDrawUsage,
   ShaderMaterial, BackSide,
 } from 'three'
 import type { FieldData } from './config'
 import { clamp, damp } from './math'
+import { buildSummit } from './wanda/summit'
 
 export interface Obstacle { x: number; z: number; radius: number; height: number }
 type Prop = [number, number, number, number, number, number, number, Color]
@@ -50,6 +51,7 @@ function sandTexture() {
   return texture
 }
 export class Arena {
+  readonly root = new Group()
   readonly obstacles: Obstacle[] = []
   readonly sun = new DirectionalLight(0xffd3a0, 2.5)
   get radius() { return this.data.radius }
@@ -57,8 +59,19 @@ export class Arena {
   private cameraBatches: CameraBatch[] = []
 
   constructor(scene: Scene, readonly data: FieldData) {
-    scene.background = new Color('#a0afb0')
-    scene.fog = new FogExp2('#a6ada5', .018)
+    scene.add(this.root)
+    this.sun.position.set(-25, 35, -30)
+    this.sun.castShadow = true
+    Object.assign(this.sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 100 })
+    this.sun.shadow.normalBias = .045
+    this.sun.shadow.bias = -.00015
+    const summit=data.landscape==='summit'
+    this.root.add(new HemisphereLight(summit?0xdad8ff:0xc9e4ec,summit?0x66577b:0x665044,2.05),this.sun)
+    if(summit) {
+      this.height=()=>0
+      buildSummit(this.root,data.radius)
+      return
+    }
     const sky = new Mesh(new SphereGeometry(125, 24, 16), new ShaderMaterial({
       side: BackSide, depthWrite: false, fog: false,
       vertexShader: 'varying vec3 dir; void main(){dir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
@@ -79,12 +92,7 @@ export class Arena {
         }`
     }))
     sky.frustumCulled = false
-    scene.add(sky, new HemisphereLight(0xc9e4ec, 0x665044, 2.05), this.sun)
-    this.sun.position.set(-25, 35, -30)
-    this.sun.castShadow = true
-    Object.assign(this.sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 100 })
-    this.sun.shadow.normalBias = .045
-    this.sun.shadow.bias = -.00015
+    this.root.add(sky)
     const plane = new PlaneGeometry(96, 96, 96, 96).rotateX(-Math.PI / 2)
     const pos = plane.attributes.position
     const colors = []
@@ -100,10 +108,10 @@ export class Arena {
     plane.computeVertexNormals()
     const floor = new Mesh(plane, new MeshStandardMaterial({ vertexColors: true, map: sandTexture(), roughness: 1 }))
     floor.receiveShadow = true
-    scene.add(floor)
+    this.root.add(floor)
     const ocean = new Mesh(new PlaneGeometry(250, 150).rotateX(-Math.PI / 2), new MeshStandardMaterial({ color: '#467e85', roughness: .45, metalness: .17 }))
     ocean.position.set(0, -.4, -102)
-    scene.add(ocean)
+    this.root.add(ocean)
     let seed = 445
     const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296)
     const rocks: Prop[] = [], grass: Prop[] = [], trunks: Prop[] = [], crowns: Prop[] = [], waves: Prop[] = []
@@ -176,13 +184,19 @@ export class Arena {
         mesh.setMatrixAt(i,obj.matrix); mesh.setColorAt(i,color)
       })
       mesh.castShadow = shadow; mesh.receiveShadow = shadow
-      scene.add(mesh)
+      this.root.add(mesh)
     }
     batch(new DodecahedronGeometry(1, 0), rocks, true, true)
     batch(new CylinderGeometry(.52, 1, 1, 6), trunks, true, true)
     batch(new ConeGeometry(1, 1, 7), crowns, true, true)
     batch(new ConeGeometry(1, 1, 3), grass, false)
     batch(new BoxGeometry(1,1,1), waves, false)
+  }
+  activate(scene:Scene) {
+    const summit=this.data.landscape==='summit'
+    scene.background=new Color(summit?'#a39aba':'#a0afb0')
+    scene.fog=new FogExp2(summit?'#a598c3':'#a6ada5',summit?.012:.018)
+    this.root.visible=true
   }
   resolve(pos: Vector3, radius: number) {
     const limit = this.radius - radius
@@ -201,7 +215,7 @@ export class Arena {
       }
     }
     clampToArena()
-    pos.y = earth(pos.x, pos.z)
+    pos.y = this.height(pos.x, pos.z)
   }
   updateCameraVisibility(dt: number, eye?: Vector3, subject?: Vector3, secondSubject?: Vector3) {
     const reveal=damp(8,dt), hide=damp(33,dt)

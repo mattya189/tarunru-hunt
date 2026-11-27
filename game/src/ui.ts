@@ -103,7 +103,7 @@ export class Interface {
     if (screen==='loading') this.panel.innerHTML='<div class="eyebrow">MEGANE HUNT</div><h1>メガネハント</h1><p role="status">闘技場を読み込み中…</p><div class="loading-line"></div>'
     if (screen==='title') this.panel.innerHTML=`
       <div class="eyebrow">3D モンスター討伐</div><h1>メガネ<em>ハント</em></h1>
-      <p class="title-note">夕凪の石浜でモンスターを討伐する。</p>
+      <p class="title-note">狩場に出てモンスターを討伐する。</p>
       <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}${button('layout','操作配置')}</div>${settings}`
     const icon = (quest: (typeof quests)[number]) => `<img class="quest-icon" src="${questIcon(quest)}" alt="">`
     const selected=quests.find(quest=>quest.monster.id===this.data.id)!
@@ -122,7 +122,7 @@ export class Interface {
     const count=(boss:string)=>`<span class="player-count" data-player-count="${boss}">集計中…</span>`
     if (screen==='monsters') this.panel.innerHTML=`
       <h2>${difficultyInfo[difficulty].name}のモンスター</h2>
-      <ul class="quest-list" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
+      <ul class="quest-list" data-difficulty="${difficulty}" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
         `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<span class="quest-name"><strong>${quest.name}</strong>${count(quest.monster.id)}</span><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
       <p class="player-count-note">挑戦者数は閲覧中のブラウザを除いて集計。</p>
       <div class="menu-actions">${button('difficulty','戻る')}</div>`
@@ -165,10 +165,12 @@ export class Interface {
     if (screen==='quest') {
       const best=bestClearTime(this.data.id,hunter)
       this.panel.innerHTML=`
-        <div class="quest-heading">${icon(selected)}<div><span class="quest-level">${difficultyInfo[selected.difficulty].name}</span><h2>${selected.name}</h2></div></div>
+        <div class="quest-heading" data-difficulty="${selected.difficulty}">${icon(selected)}<div><span class="quest-level">${difficultyInfo[selected.difficulty].name}</span><h2>${selected.name}</h2>${selected.englishName?`<small>${selected.englishName}</small>`:''}</div></div>
         <p class="player-count-note">${count(this.data.id)} · このブラウザを除く</p>
         <dl class="quest-facts">
           <div><dt>クリアタイム<span>この端末の自己ベスト · ${hunterLabels[hunter]}</span></dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>
+          ${selected.field?`<div><dt>狩場</dt><dd>${selected.field}</dd></div>`:''}
+          ${selected.species?`<div><dt>種族・属性</dt><dd>${selected.species}</dd></div>`:''}
           <div><dt>主な攻撃</dt><dd>${selected.attacks}</dd></div>
         </dl>
         <details class="quest-guide"><summary>詳しい攻略</summary><ul>${selected.advice.map(tip=>`<li>${tip}</li>`).join('')}</ul></details>
