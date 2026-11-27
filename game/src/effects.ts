@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three'
 import { clamp } from './math'
+import type { BattleAudio, SoundCue } from './battle-audio'
 
 type Fx = { mesh: Mesh<RingGeometry | SphereGeometry, MeshBasicMaterial>; life: number; total: number; size: number; end: number; strength: number; vx: number; vy: number; vz: number; ring: boolean }
 type NumberFx = { node: HTMLSpanElement; p: Vector3; life: number }
@@ -19,7 +20,7 @@ export class Effects {
   private trailPositions = new Float32Array(126)
   private trail: Mesh<BufferGeometry,MeshBasicMaterial>
 
-  constructor() {
+  constructor(private readonly audio?: BattleAudio) {
     const ribbon = new BufferGeometry()
     ribbon.setAttribute('position',new BufferAttribute(this.trailPositions,3))
     this.trail = new Mesh(ribbon,new MeshBasicMaterial({transparent:true,opacity:0,side:DoubleSide,depthWrite:false,toneMapped:false}))
@@ -77,7 +78,11 @@ export class Effects {
       e.vx = (Math.random()-.5)*8*spread; e.vy = 1+Math.random()*4; e.vz = (Math.random()-.5)*8*spread
     }
   }
-  hit(p: Vector3, value: number, caption: string, color: number, heavy: boolean, playerHit: boolean) {
+  sound(cue: SoundCue, point: Vector3, intensity = 1) { this.audio?.play(cue,point,intensity) }
+
+  hit(p: Vector3, value: number, caption: string, color: number, heavy: boolean, playerHit: boolean,
+      cue: SoundCue = playerHit ? 'hit-player' : 'hit-flesh') {
+    this.sound(cue,p,heavy ? 1 : .79)
     this.burst(p,color,heavy)
     const number = this.numbers.find(n => !n.life) ?? this.numbers[0]
     number.p.copy(p); number.life = .88

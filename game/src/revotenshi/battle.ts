@@ -103,7 +103,7 @@ export class RevotenshiBattle extends Battle {
 
   protected override acceptBossDamage() {
     if (!this.barrier) return true
-    this.fx.hit(this.monster.parts[0].center,0,'無敵バリア',0xbe81ff,false,false)
+    this.fx.hit(this.monster.parts[0].center,0,'無敵バリア',0xbe81ff,false,false,'hit-armor')
     return false
   }
 
@@ -125,6 +125,7 @@ export class RevotenshiBattle extends Battle {
           this.barrier=false
           this.barrierBroken=true
           this.effects.breakBarrier()
+          this.fx.sound('shield-break',this.m)
           this.setBoss('fall')
           this.callout='バリア破壊 · 4秒ダウン'
         }
@@ -231,7 +232,7 @@ export class RevotenshiBattle extends Battle {
           this.activeAttack=kind; this.landed=false
           this.callout=`${attacks[kind].label} · ${attacks[kind].tell}`
           this.setBoss('windup')
-          if (kind==='beam') this.effects.charge()
+          if (kind==='beam') { this.fx.sound('beam-charge',this.m); this.effects.charge() }
           if (kind==='spin') {
             const radius=combat.spinRadius
             this.fx.ring(this.m,radius,radius,this.monster.duration('spinPrep'),0xff9edc)
@@ -260,8 +261,8 @@ export class RevotenshiBattle extends Battle {
       if (this.play(windup,dt)) {
         this.setBoss('attack')
         this.callout=attacks[kind].label
-        if (kind==='beam') this.effects.beam()
-        if (kind==='spin') this.effects.spin()
+        if (kind==='beam') { this.fx.sound('beam-release',this.m); this.effects.beam() }
+        if (kind==='spin') { this.fx.sound('beast-spin',this.m); this.effects.spin() }
       }
       return
     }
@@ -289,6 +290,7 @@ export class RevotenshiBattle extends Battle {
       forward(this.bossYaw,this.tornadoDirection)
       this.tornadoPosition.copy(this.m).addScaledVector(this.tornadoDirection,1.26)
       this.effects.tornado(this.tornadoPosition)
+      this.fx.sound('vortex',this.tornadoPosition)
     }
     if (finished) {
       this.effects.stop('beam'); this.effects.stop('spin')
@@ -333,6 +335,7 @@ export class RevotenshiBattle extends Battle {
     if (!this.barrier && this.bt+1e-5>=cues.barrier) {
       this.barrier=true
       this.effects.barrier()
+      this.fx.sound('shield-on',this.m)
     }
     if (this.bt-dt<cues.minions && this.bt>=cues.minions) this.spawnClones()
     if (finished) this.approach()
@@ -356,6 +359,7 @@ export class RevotenshiBattle extends Battle {
       return position
     })
     this.effects.summon(positions)
+    this.fx.sound('summon',this.m)
   }
 
   private tickClone(clone:Clone,dt:number) {
@@ -386,7 +390,7 @@ export class RevotenshiBattle extends Battle {
     }
     if (clone.age+1e-5<duration) return
     clone.age=0
-    if (clone.state==='windup') { clone.state='spin'; clone.effects.spin() }
+    if (clone.state==='windup') { clone.state='spin'; clone.effects.spin(); this.fx.sound('beast-spin',position,.70) }
     else if (clone.state==='spin') clone.state='recover'
     else { clone.state='chase'; clone.readyAt=this.elapsed+1.4 }
   }

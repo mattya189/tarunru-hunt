@@ -31,6 +31,7 @@ export interface MonsterData {
   motions: Partial<Record<Motion, { clip: string; speed?: number }>>
   extraPoses?: Partial<Record<Motion, readonly MonsterPose[]>>
   reticle?: { anchor?: 'root' | 'first-part'; offsetY?: number; size?: number; icon?: string }
+  metallic?: boolean
   meshopt?: boolean
   emitters?: readonly string[]
   rigidMeshes?: boolean

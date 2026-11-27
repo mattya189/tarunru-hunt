@@ -1,6 +1,7 @@
 import type { MonsterData, Motion } from '../config'
 
 export const shikouki: MonsterData = {
+  metallic: true,
   id: 'shikouki', name: '紫煌機', model: 'models/shikouki/model.glb',
   hp: 5000, speed: 3.5, power: .43, scale: 1.12, yawOffset: 0, footOffset: .03, radius: 1.28,
   parts: [

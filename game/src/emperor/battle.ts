@@ -187,6 +187,8 @@ export class EmperorBattle extends Battle {
 
   private impact(strike: EmperorStrike) {
     const heavy = strike.knockdown ?? false
+    const cue = heavy ? 'emperor-impact' : strike.hitbox.kind === 'band' ? 'shockwave' : 'beast-swipe'
+    this.fx.sound(cue, this.attackCenter)
     if (heavy) this.fx.shake = Math.max(this.fx.shake, .23)
     if (strike.hitbox.kind === 'band') this.fx.burst(this.attackCenter, 0xff9658, true, 1.3)
     if (inEmperorHitbox(this.p, this.attackCenter, this.strikeYaw, strike.hitbox)) {

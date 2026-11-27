@@ -1,5 +1,6 @@
 import { Vector3 } from 'three'
 import type { Motion } from '../config'
+import type { SoundCue } from '../battle-audio'
 import { clamp, flatDistance, yawTo } from '../math'
 import { crystal, damageScale, moves, phases, shikouki, type MoveId } from './config'
 
@@ -23,6 +24,7 @@ export interface Hazard {
   split?: boolean
   shock?: boolean
   rotate?: number
+  cue?: SoundCue
 }
 export interface Crystal { center: Vector3; hp: number; at: number; end: number }
 export interface Shot { center: Vector3; angle: number; speed: number; damage: number; end: number }
@@ -44,6 +46,7 @@ interface Ports {
   resolve: (point: Vector3) => void
   damage: (damage: number, source: Vector3, knockdown: boolean, scale: DamageScale) => boolean
   ring: (point: Vector3, size: number, color: number) => void
+  sound: (cue: SoundCue, point: Vector3, intensity?: number) => void
 }
 const tau = Math.PI * 2
 const bodyRadius = .44
@@ -127,6 +130,7 @@ export class ShikoukiAttacks {
       this.action={ id:'phase',motion:next===1?'enrage':'shikoukiBerserk',age:0,rate:1,duration:2,recovery:.35,events:[],chargeHit:false }
       this.motion=this.action.motion; this.progress=0
       this.ports.ring(this.boss,4.5,0xa764e4)
+      this.ports.sound('beam-charge',this.boss,.86)
       return
     }
     if(this.phase===2 && !this.ultimateUsed) { this.begin('ultimate',player); return }
@@ -182,22 +186,22 @@ export class ShikoukiAttacks {
 
     switch(id) {
       case 'slash_horizontal':
-        warn(0,.72,footprint(origin,'fan',{angle:aim,radius:4.6,arc:1.12,damage:16,shatter:true}))
+        warn(0,.72,footprint(origin,'fan',{angle:aim,radius:4.6,arc:1.12,damage:16,shatter:true,cue:'metal-swipe'}))
         break
       case 'leg_pierce':
         for(let i=0;i<3;i++) {
           const hit=.78+i*.53
-          warn(hit-.65,hit,line(5.35,.63,12,{angle:aim+(i-1)*.18}))
+          warn(hit-.65,hit,line(5.35,.63,12,{angle:aim+(i-1)*.18,cue:'metal-swipe'}))
         }
         break
       case 'wing_spin':
-        warn(0,.89,ring(origin,4.65,17,{shatter:true}),.20)
+        warn(0,.89,ring(origin,4.65,17,{shatter:true,cue:'beast-spin'}),.20)
         break
       case 'charge': {
         const end=offset(origin,aim,Math.min(12.5,Math.max(4,flatDistance(origin,target)+1)))
         this.ports.resolve(end)
         const length=flatDistance(origin,end), travelAim=yawTo(origin,end)
-        warn(0,.65,line(length+1.2,1.45,0,{angle:travelAim}))
+        warn(0,.65,line(length+1.2,1.45,0,{angle:travelAim,cue:'beast-rush'}))
         this.angle=travelAim
         action.travel={from:origin,to:end,start:.65,end:1.50}
         break
@@ -206,6 +210,7 @@ export class ShikoukiAttacks {
         warn(0,.77,footprint(origin,'fan',{angle:aim,radius:15,arc:.755}))
         for(let wave=0;wave<3;wave++) event(.77+wave*.43,()=>{
           const count=tuning.bullets/3
+          this.ports.sound('feather-volley',origin,.83)
           for(let i=0;i<count;i++) this.fire(offset(origin,aim,1.5),aim+(i/(count-1)-.5)*1.35+(wave-1)*.08,10.8,10)
         })
         break
@@ -216,36 +221,39 @@ export class ShikoukiAttacks {
         }
         break
       case 'beam': {
+        this.ports.sound('beam-charge',origin)
         const c=this.crystals.filter(c=>flatDistance(c.center,origin)<20 && flatDistance(c.center,origin)>2)
           .sort((a,b)=>flatDistance(a.center,target)-flatDistance(b.center,target))[0]
         if(c && flatDistance(c.center,target)<8) this.angle=yawTo(origin,c.center)
-        warn(0,1.23,line(29,.65,22,{angle:this.angle,beam:true,split:true,scale:damageScale.heavy}),.55/rate)
+        warn(0,1.23,line(29,.65,22,{angle:this.angle,beam:true,split:true,scale:damageScale.heavy,cue:'beam-release'}),.55/rate)
         break
       }
       case 'dive': {
         event(1.3,()=>{ action.motion='shikoukiHover' })
         event(2.2,()=>{ action.motion='leap' })
         this.ports.resolve(target)
-        warn(1.3,3.6,ring(target,4.65,21,{shock:true,scale:damageScale.heavy}),.24)
+        warn(1.3,3.6,ring(target,4.65,21,{shock:true,scale:damageScale.heavy,cue:'earth-slam'}),.24)
         action.travel={from:origin,to:target,start:2.2,end:3.6}
         break
       }
       case 'ultimate': {
         this.ultimateUsed=true
         this.ports.ring(origin,4.5,0xad69e2)
+        this.ports.sound('summon',origin,.86)
         let landing=target
         for(let i=0;i<48;i++) {
           const center=this.crystalPoint(new Vector3(),i,3+Math.sqrt(i)*2.62,1.25)
           warn(2+i/20,2.65+i/20,ring(center,.91,10,{pillar:true,scale:damageScale.crystal}))
         }
-        for(let i=0;i<2;i++) warn(4.12,5,line(47,.57,16,{angle:aim+i*Math.PI,beam:true,rotate:.91,scale:damageScale.heavy}),2.9)
+        for(let i=0;i<2;i++) warn(4.12,5,line(47,.57,16,{angle:aim+i*Math.PI,beam:true,rotate:.91,scale:damageScale.heavy,cue:'beam-release'}),2.9)
         for(let wave=0;wave<3;wave++) event(5+wave,()=>{
+          this.ports.sound('feather-volley',origin)
           for(let n=0;n<24;n++) this.fire(origin,n*tau/24+wave*.14,11.7,9)
         })
         event(8,()=>{
           landing=player.clone(); this.ports.resolve(landing)
           this.callout='紫煌天獄 · 着地点から離れろ'
-          this.addHazard(ring(landing,7.1,28,{shock:true,scale:damageScale.ultimateImpact}),2,.30)
+          this.addHazard(ring(landing,7.1,28,{shock:true,scale:damageScale.ultimateImpact,cue:'emperor-impact'}),2,.30)
         })
         event(8.6,()=>{
           action.motion='leap'
@@ -320,7 +328,9 @@ export class ShikoukiAttacks {
     if(this.time+1e-6<h.at || this.time>=h.end) return
     if(!h.live) {
       h.live=true
+      if(h.cue) this.ports.sound(h.cue,h.origin)
       if(h.pillar) {
+        this.ports.sound('crystal',h.origin,.72)
         if(this.crystals.length>=crystal.limit) this.crystals.shift()
         this.crystals.push({center:h.origin,hp:crystal.hp,at:this.time,end:this.time+crystal.life})
       }
@@ -332,7 +342,7 @@ export class ShikoukiAttacks {
           .sort((a,b)=>flatDistance(h.origin,a.center)-flatDistance(h.origin,b.center))[0]
         if(c) {
           for(const turn of [-.57,.57]) this.addHazard(footprint(c.center,'box',{
-            angle:h.angle+turn,length:16,width:.45,damage:13,beam:true,scale:damageScale.heavy,
+            angle:h.angle+turn,length:16,width:.45,damage:13,beam:true,scale:damageScale.heavy,cue:'beam-release',
           }),.38,.47)
           this.callout='結晶共鳴 · 光線が分岐'
           this.ports.ring(c.center,2.2,0xba6dff)
@@ -354,7 +364,7 @@ export class ShikoukiAttacks {
 
   breakCrystal(c:Crystal, explode:boolean) {
     this.crystals=this.crystals.filter(item=>item!==c)
-    if(explode) this.addHazard(footprint(c.center,'circle',{radius:1.55,damage:9,scale:damageScale.crystal}),.38,.16)
+    if(explode) this.addHazard(footprint(c.center,'circle',{radius:1.55,damage:9,scale:damageScale.crystal,cue:'crystal-burst'}),.38,.16)
     else this.ports.ring(c.center,1.7,0xc574ff)
   }
 

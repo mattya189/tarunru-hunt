@@ -1,6 +1,6 @@
 import { ACESFilmicToneMapping, PCFShadowMap, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
 import { Battle } from './battle'
-import { BattleMusic } from './battle-music'
+import { BattleAudio } from './battle-audio'
 import { HuntCamera } from './camera'
 import { ContactShadow } from './contact'
 import { ControlLayout } from './control-layout'
@@ -39,7 +39,7 @@ const orientationNotice=document.querySelector<HTMLElement>('#orientation-notice
 const landscapePhone=matchMedia('(orientation: landscape) and (pointer: coarse)')
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
-const music=new BattleMusic()
+const audio=new BattleAudio()
 const ratios={low:.78,medium:1.16,high:1.78}
 let quality: Quality=input.coarse?'low':'high'
 try {
@@ -72,7 +72,7 @@ let hunterShadow: ContactShadow, bossShadow: ContactShadow
 let dirty=true, frameCount=0
 let latest=performance.now(), titleTime=0, accumulator=0, uiTimer=0
 const step=1/60
-const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,music,chooseHunter)
+const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,audio,chooseHunter)
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')
 const reticles=new Reticles(model => {
@@ -87,8 +87,8 @@ window.visualViewport?.addEventListener('resize',updateViewport)
 
 function switchTo(next: Screen | null) {
   if (next===null && orientationBlocked) next='paused'
-  if(next===null) music.resume()
-  else music.pause()
+  if(next===null) audio.resume()
+  else { audio.pauseMusic(); audio.stopEffects() }
   screen=next
   input.clear(); input.enabled=next===null
   accumulator=0
@@ -107,7 +107,7 @@ async function loadBattle(data:MonsterData) {
   let next:Battle
   const profile=sabotProfiles.get(data.id)
   if(profile) {
-    const runtime=await AttackRuntime.load(scene,arena,monster,quality,profile)
+    const runtime=await AttackRuntime.load(scene,arena,monster,quality,profile,(cue,point,level)=>fx.sound(cue,point,level))
     const encounter=new SabotBattle(monster,hunter,arena,fx,greatsword)
     encounter.attachRuntime(runtime)
     next=encounter
@@ -162,11 +162,12 @@ async function startHunt() {
   if(screen!=='quest' && screen!=='paused' && screen!=='victory' && screen!=='failure') return
   switchTo('loading')
   // Safari requires the first play() call inside the Start/Retry tap.
-  music.start()
+  audio.start()
   try {
     const [next,model]=await Promise.all([
       loadBattle(selectedMonster),
       selectedHunter==='flare'?flareModel ?? FlareModel.load():undefined,
+      audio.ready(),
     ])
     if(model) flareModel=model
     if(battle!==next) {
@@ -274,13 +275,14 @@ function frame(now: number) {
   if(screen===null) {
     const lookX=input.lookX
     input.lookX=0
+    audio.setListener(battle.p,camera.yaw)
     accumulator+=dt
     while(accumulator>=step) {
       accumulator-=step
       if(fx.hitstop>0) fx.hitstop=Math.max(0,fx.hitstop-step)
       else { battle.update(step,input,camera.yaw); input.endFrame() }
     }
-    if(battle.outcome) music.pause()
+    if(battle.outcome) audio.pauseMusic()
     if(battle.outcome==='victory' && huntStarted!==undefined) {
       recordClearTime(battle.monster.data.id,selectedHunter,Math.max(1,Math.round(performance.now()-huntStarted)))
       huntStarted=undefined
@@ -318,7 +320,7 @@ function frame(now: number) {
 
 function fail(error: unknown) {
   console.error(error)
-  music.pause()
+  audio.pauseMusic(); audio.stopEffects()
   screen='error'; input.clear(); input.enabled=false
   reticles.clear(); controlsLayout.close()
   ui.show('error',quality,undefined,error instanceof Error?error.message:'3Dデータを読み込めなかった。')
@@ -333,7 +335,7 @@ async function init() {
     renderer.shadowMap.autoUpdate=false
     scene=new Scene()
     arena=new Arena(scene,coast)
-    fx=new Effects(); scene.add(fx.root)
+    fx=new Effects(audio); scene.add(fx.root)
     camera=new HuntCamera(arena)
     hunter=new HunterModel()
     battle=await loadBattle(tidebeast)
@@ -342,8 +344,8 @@ async function init() {
     camera.reset(battle)
     applyQuality(quality)
     document.addEventListener('visibilitychange',()=>{
-      if(document.hidden) music.pause()
-      else if(!orientationBlocked && screen===null && !battle.outcome) music.resume()
+      if(document.hidden) { audio.pauseMusic(); audio.stopEffects() }
+      else if(!orientationBlocked && screen===null && !battle.outcome) audio.resume()
     })
     canvas.addEventListener('webglcontextlost',event=>{
       event.preventDefault()
@@ -351,7 +353,13 @@ async function init() {
     })
     document.querySelector('#pause')!.addEventListener('click',()=>{ if(screen===null&&!battle.outcome) switchTo('paused') })
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
+    const recoverAudio=()=>{
+      if (!orientationBlocked && screen===null && !battle.outcome) audio.resume()
+    }
+    window.addEventListener('pointerup',recoverAudio)
+    window.addEventListener('keydown',recoverAudio)
     switchTo('title')
+    audio.preload()
     requestAnimationFrame(frame)
   } catch(error) { fail(error) }
 }

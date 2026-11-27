@@ -107,6 +107,7 @@ export class HunterModel {
   showSword(visible:boolean) { this.posture.visible=visible }
 
   pose(state: HunterPose, p: number, dt: number, combo: number, moving: number) {
+    const lastStep=Math.floor((this.stride + Math.PI*.5) / Math.PI)
     this.stride += dt * 11.3
     const run = state === 'run' ? moving : 0
     const step = Math.sin(this.stride)*run
@@ -169,6 +170,7 @@ export class HunterModel {
     this.posture.updateMatrixWorld(true)
     this.placeArm(1,this.grip,false)
     this.placeArm(0,this.secondGrip,state === 'run' || state === 'idle' || state === 'dodge')
+    return run > .18 && lastStep !== Math.floor((this.stride + Math.PI*.5) / Math.PI)
   }
   private placeArm(i: number, grip: Object3D, free: boolean) {
     const side = i === 0 ? -1 : 1

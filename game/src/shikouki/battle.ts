@@ -30,6 +30,7 @@ export class ShikoukiBattle extends Battle {
       resolve:p=>this.arena.resolve(p,this.monster.data.radius),
       damage:(damage,source,knockdown,scale)=>!this.outcome && this.damagePlayer({damage,knockdown},source,this.monster.data.power,scale),
       ring:(p,size,color)=>this.fx.ring(p,.4,size,.52,color),
+      sound:(cue,p,level)=>this.fx.sound(cue,p,level),
     })
     this.visuals?.clear()
   }
@@ -68,7 +69,7 @@ export class ShikoukiBattle extends Battle {
     const dealt=Math.min(hit.hp,damage)
     hit.hp-=damage
     this.crystalHitPoint.copy(hit.center).y+=.88
-    this.fx.hit(this.crystalHitPoint,Math.round(damage),'結晶',0xc57fff,hit.hp<=0,false)
+    this.fx.hit(this.crystalHitPoint,Math.round(damage),'結晶',0xc57fff,hit.hp<=0,false,hit.hp<=0?'crystal-burst':'hit-armor')
     if(hit.hp<=0) this.attacks.breakCrystal(hit,false)
     return dealt
   }

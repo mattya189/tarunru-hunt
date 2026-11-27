@@ -33,6 +33,7 @@ export class RavenBattle extends Battle {
   private readonly eyeLanes=[new Vector3(),new Vector3()]
   private readonly eyeYaws=Array<number>(8).fill(0)
   private events=0
+  private firedEyes=0
   private chargedHit=false
   private beamReady=0
   private dustReady=0
@@ -156,6 +157,8 @@ export class RavenBattle extends Battle {
   }
 
   private start(id:RavenAttack) {
+    this.firedEyes=0
+    if (id==='laser') this.fx.sound('beam-charge',this.m)
     this.current=id
     this.events=0
     this.activeCompleted=false
@@ -206,6 +209,8 @@ export class RavenBattle extends Battle {
         this.visuals.zone.hide()
         this.visuals.hideLines()
         this.setBoss('attack')
+        if(id==='laser') this.fx.sound('beam-release',this.m)
+        if(id==='charge') this.fx.sound('beast-rush',this.m)
         this.execute(id,0)
       }
       return
@@ -308,6 +313,7 @@ export class RavenBattle extends Battle {
     const count=this.rage?3:2
     while(this.events<count && time+1e-6>=armInterval*this.events) {
       const slam=this.events++===2
+      this.fx.sound(slam?'earth-slam':'metal-swipe',this.m)
       if(slam) {
         this.fx.ring(this.m,.7,3.15,.36,0xf47395)
         this.fx.burst(this.m,0xc09072,true)
@@ -323,6 +329,7 @@ export class RavenBattle extends Battle {
     if(this.events===0) {
       this.events=1
       this.fx.ring(this.m,2.25,spin.range,spin.active,magenta,.85)
+      this.fx.sound('metal-swipe',this.m,1.10)
     }
     const bladeYaw=this.heading + time/spin.active*Math.PI*2
     const angle=Math.abs(wrap(yawTo(this.m,this.p)-bladeYaw))
@@ -366,6 +373,7 @@ export class RavenBattle extends Battle {
 
   private launchFeathers(yaw:number,count:number,spread:number,phase:boolean) {
     const wing=this.monster.emitter('Wing',this.muzzle)
+    this.fx.sound('feather-volley',wing,phase?1:.88)
     for(let i=0;i<count;i++) {
       const shot=this.visuals.feathers.find(item=>!item.mesh.visible)
       if(!shot) break
@@ -408,6 +416,7 @@ export class RavenBattle extends Battle {
       mark.center.copy(this.p)
       mark.time=markFuse
       this.visuals.mark(index,0,attacks.marks.range)
+      this.fx.sound('crystal',mark.center,.58)
     }
   }
 
@@ -426,6 +435,7 @@ export class RavenBattle extends Battle {
       }
       this.visuals.syncEyes()
       this.events=1
+      this.fx.sound('summon',this.m)
     }
     visuals.hideLines()
     visuals.hideBeams()
@@ -435,6 +445,11 @@ export class RavenBattle extends Battle {
       const yaw=this.eyeYaws[i]
       if(until>0 && until<=circle.warning) visuals.lines[i].lane(eye.position,yaw,20,laser.width+.20,1-until/circle.warning,magenta)
       else if(until<=0 && until>-circle.beamTime) {
+        const bit=1<<i
+        if (!(this.firedEyes & bit)) {
+          this.firedEyes|=bit
+          this.fx.sound('beam-release',eye.position,.55)
+        }
         this.from.copy(eye.position).y+=.45
         this.fireBeam(0,eye.position,yaw,20,.8,this.from)
       }
@@ -451,6 +466,7 @@ export class RavenBattle extends Battle {
       this.events++
       this.fx.ring(this.m,1.5,attacks.ultimate.range,.44,magenta)
       this.fx.burst(this.m,magenta,true)
+      this.fx.sound('emperor-impact',this.m,.89)
       if(this.inArea(attacks.ultimate.range)) this.hurt(attacks.ultimate.multiplier,this.m,true,.9)
     }
   }
@@ -466,6 +482,7 @@ export class RavenBattle extends Battle {
         this.visuals.hideMark(i)
         this.fx.ring(mark.center,.24,attacks.marks.range,.34,magenta)
         this.fx.burst(mark.center,magenta,false)
+        this.fx.sound('crystal-burst',mark.center,.75)
         if(flatDistance(mark.center,this.p)<=attacks.marks.range) this.hurt(attacks.marks.multiplier,mark.center)
       }
     }

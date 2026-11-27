@@ -4,9 +4,9 @@ import type { Arena } from '../world'
 
 export const maxEnergy = 300
 export const flareSpells = [
-  { name:'フレアⅠ', clip:'Flare1', cost:75, damage:140, radius:2.5, release:.20, duration:.50, color:0xff792c },
-  { name:'フレアⅡ', clip:'Flare2', cost:180, damage:400, radius:4, release:.60, duration:1.20, color:0xef183b },
-  { name:'フレアⅢ', clip:'Flare3', cost:300, damage:880, radius:6, release:1.20, duration:2.20, color:0xffbc42 },
+  { name:'フレアⅠ', sound:'flare-1', clip:'Flare1', cost:75, damage:140, radius:2.5, release:.20, duration:.50, color:0xff792c },
+  { name:'フレアⅡ', sound:'flare-2', clip:'Flare2', cost:180, damage:400, radius:4, release:.60, duration:1.20, color:0xef183b },
+  { name:'フレアⅢ', sound:'flare-3', clip:'Flare3', cost:300, damage:880, radius:6, release:1.20, duration:2.20, color:0xffbc42 },
 ] as const
 export type Spell = (typeof flareSpells)[number]
 type Cast = {

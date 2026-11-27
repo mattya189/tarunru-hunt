@@ -1,6 +1,7 @@
 import { Vector3 } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import type { Scene } from 'three'
+import type { SoundCue } from '../battle-audio'
 import type { MonsterModel } from '../monster-model'
 import type { Quality } from '../ui'
 import type { Arena } from '../world'
@@ -24,8 +25,9 @@ interface LiveShot extends Shot {
 }
 interface TimelineRun {
   timeline:AttackTimeline; start:number; rate:number; group:number; eventIndex:number;
-  breath?:Breath; breathTime:number; detonated:boolean
+  breath?:Breath; breathTime:number; breathStarted:boolean; detonated:boolean
 }
+type PlaySound=(cue:SoundCue, source:Vector3, intensity?:number)=>void
 type DealDamage=(damage:number,source:Vector3,knockdown:boolean)=>boolean
 
 export class AttackRuntime {
@@ -46,13 +48,13 @@ export class AttackRuntime {
   private readonly read:SocketReader
   private readonly effects:AttackEffects
 
-  static async load(scene:Scene,arena:Arena,model:MonsterModel,quality:Quality,profile:SabotCombatProfile) {
+  static async load(scene:Scene,arena:Arena,model:MonsterModel,quality:Quality,profile:SabotCombatProfile,sound:PlaySound) {
     const thorn=await new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'models/sabottenanbon/'+objectData.objects.cinder_thorn.model)
-    return new AttackRuntime(arena,model,scene,thorn.scene,quality,profile)
+    return new AttackRuntime(arena,model,scene,thorn.scene,quality,profile,sound)
   }
 
   private constructor(arena:Arena,model:MonsterModel,scene:Scene,thorn:import('three').Group,quality:Quality,
-    readonly profile:SabotCombatProfile) {
+    readonly profile:SabotCombatProfile,private readonly sound:PlaySound) {
     this.geometry=new ArenaGeometry(arena)
     this.read=createSocketReader(model.root,eventData.sockets)
     this.effects=new AttackEffects({scene,thornModel:thorn,objects:objectData,config:effectData,events:eventData,
@@ -68,7 +70,7 @@ export class AttackRuntime {
   begin(id:SabotAttack,rate=this.profile.attacks[id].rate) {
     if(!Number.isFinite(rate)||rate<=0) throw new Error("再生速度は正の数で指定してください")
     const timeline=timelineFor(id)
-    this.active={timeline,start:this.time,rate,group:++this.group,eventIndex:0,breathTime:-Infinity,detonated:false,
+    this.active={timeline,start:this.time,rate,group:++this.group,eventIndex:0,breathTime:-Infinity,breathStarted:false,detonated:false,
       breath:timeline.events.find((event):event is Breath=>event.type==='breath')}
   }
 
@@ -119,12 +121,18 @@ export class AttackRuntime {
             else shot.cancelPlant=true
           }
           const player=this.endHunter.copy(previous).lerp(hunter,(at-start)/dt)
+          const landed=this.shots.find(shot=>shot.group===run.group && shot.plant && !shot.cancelPlant)
+          if (landed) this.sound('emperor-impact',landed.impactCenter,.87)
           this.applyExplosions(at,at,player,hit)
         }
       }
       const local=(end-run.start)*run.rate
       poseAt(run.timeline.id,local,end-this.time)
       const breath=run.breath
+      if (breath && !run.breathStarted && local>=breath.start) {
+        run.breathStarted=true
+        this.sound('breath-fire',this.read(breath.attachment).position)
+      }
       if (breath && local>=breath.start && local<breath.end && end+epsilon>=run.breathTime &&
           this.geometry.hitsBreath(this.geometry.breath(breath,local,this.read,false),hunter)) {
         run.breathTime=end+breath.hit.tickSeconds
@@ -159,6 +167,7 @@ export class AttackRuntime {
     })
     const spawned=planBurst(burst,def,this.read,[],this.serial,this.geometry.contact)
     this.serial+=spawned.length
+    if(spawned.length) this.sound('thorn-volley',spawned[0].origin)
     this.shots.push(...spawned.map(shot=>({...shot,plant,group:run.group,hitHunter:false,cancelPlant:false})))
   }
 
@@ -187,6 +196,11 @@ export class AttackRuntime {
         shot.duration=b-shot.launchTime
         projectilePosition(shot,shot.duration,shot.impactCenter)
         shot.contactPoint.copy(shot.impactCenter); shot.impactNormal=null
+      }
+    }
+    for(const shot of this.shots) {
+      if(!shot.plant && !shot.cancelPlant && shot.detonateTime>this.time && shot.detonateTime<=end) {
+        this.sound('thorn-explode',shot.impactCenter,.82)
       }
     }
     this.applyExplosions(this.time,end,this.endHunter.copy(previous).lerp(hunter,clamp((end-start)/dt,0,1)),hit)

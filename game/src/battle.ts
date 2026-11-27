@@ -181,6 +181,7 @@ export class Battle {
     const target=this.lockTarget
     const angle = yawTo(this.p,target)
     let pose: HunterPose='idle', phase=0
+    const wasGuarding=this.guard
     this.guard=false
     this.chargeValue=0
     this.dodgeBuffer=Math.max(0,this.dodgeBuffer-dt)
@@ -195,6 +196,7 @@ export class Battle {
     }
     if (this.playerState==='free') {
       this.guard=input.held('guard') && this.stamina >= 5
+      if (this.guard && !wasGuarding) this.fx.sound('guard-raise',this.p)
       if (magnitude>.045 || this.lock) {
         const aim=this.lock ? angle : Math.atan2(dir.x,dir.z)
         this.playerYaw += wrap(aim-this.playerYaw)*Math.min(1,dt*16)
@@ -203,14 +205,17 @@ export class Battle {
       const aimed = this.lock || Math.abs(wrap(angle-this.playerYaw))<.60
       if (!this.guard && magic?.begin(shot,charge,this.elapsed,aimed)) {
         if(aimed) this.playerYaw=angle
+        this.setPlayer('cast')
         if(magic.cast?.spell) {
           const { radius,release,color }=magic.cast.spell
+          this.fx.sound('magic-charge',this.p)
           this.fx.ring(this.p,radius,radius,release,color,.47)
         }
-        this.setPlayer('cast')
       } else if (!this.guard && !magic && attack && this.useStamina(5)) this.beginSwing(0,false)
-      else if (!this.guard && !magic && charge && this.useStamina(12)) this.setPlayer('charge')
-      else {
+      else if (!this.guard && !magic && charge && this.useStamina(12)) {
+        this.setPlayer('charge')
+        this.fx.sound('sword-charge',this.p)
+      } else {
         pose=this.guard?'guard':magnitude>.045?'run':'idle'
         this.moveEntity(this.p,dir,(this.guard?1.7:this.weapon.walk)*dt,.44,this.m,this.monster.data.radius)
       }
@@ -228,6 +233,9 @@ export class Battle {
     if (this.playerState==='swing') {
       pose='swing'
       const s=this.strike, duration=s.windup+s.active+s.recovery
+      if (this.pt >= s.windup && this.pt - dt < s.windup) {
+        this.fx.sound(this.charged || this.combo===2 ? 'sword-heavy' : 'sword-light',this.p)
+      }
       phase=this.pt<s.windup ? this.pt/s.windup : this.pt<s.windup+s.active ? 1+(this.pt-s.windup)/s.active : 2+clamp((this.pt-s.windup-s.active)/s.recovery,0,1)
       if (attack && this.pt > .03 && this.combo < 2 && !this.charged) this.queued=true
       if (phase<1 && (this.lock || (flatDistance(this.p,target)<4.0 && Math.abs(wrap(angle-this.playerYaw))<1.1))) {
@@ -259,6 +267,7 @@ export class Battle {
         const released=magic.release(this.pt)
         if(released?.spell) {
           const spell=released.spell
+          this.fx.sound(spell.sound,this.p)
           this.fx.ring(this.p,spell.radius*.95,spell.radius,.55,spell.color)
           this.fx.ring(this.p,.3,spell.radius,.38,spell.color)
           this.fx.burst(this.p,spell.color,true,spell.radius*.55)
@@ -266,6 +275,7 @@ export class Battle {
         } else if(released) {
           this.flareModel!.hand.getWorldPosition(this.magicOrigin)
           magic.launch(this.magicOrigin,this.playerYaw,released.aimed?this.magicLockPoint():undefined)
+          this.fx.sound('magic-shot',this.magicOrigin)
         }
         if(this.pt>=cast.duration) {
           magic.cast=undefined
@@ -274,11 +284,13 @@ export class Battle {
       } else {
         magic.cast=undefined
         const clip = { idle:'Idle',run:'Run',guard:'Guard',dodge:'Dodge',hit:'Hit',down:'Hit',rise:'Idle',swing:'Idle',charge:'Idle' }[pose]
-        this.flareModel!.pose(clip,dt,pose==='dodge'?phase*.65:undefined)
+        if (this.flareModel!.pose(clip,dt,pose==='dodge'?phase*.65:undefined) && magnitude > .18) {
+          this.fx.sound('footstep',this.p,.75+.25*magnitude)
+        }
       }
       return
     }
-    this.hunter.pose(pose,phase,dt,this.combo,magnitude)
+    if (this.hunter.pose(pose,phase,dt,this.combo,magnitude)) this.fx.sound('footstep',this.p,.75+.25*magnitude)
     this.previousA.copy(this.bladeA); this.previousB.copy(this.bladeB)
     this.hunter.blade(this.bladeA,this.bladeB)
     if (pose==='swing' && phase>.98 && phase<1.99) this.fx.blade(this.bladeA,this.bladeB,this.charged && this.power>1)
@@ -304,6 +316,7 @@ export class Battle {
 
   private startDodge(direction: Vector3, magnitude: number) {
     this.setPlayer('dodge')
+    this.fx.sound('dodge',this.p)
     if (magnitude>.13) this.roll.copy(direction).normalize()
     else forward(this.playerYaw,this.roll)
     this.playerYaw=Math.atan2(this.roll.x,this.roll.z)
@@ -333,7 +346,8 @@ export class Battle {
     const stagger=damage*best.config.stagger*staggerScale
     this.poise+=stagger
     if (best.config.bone===this.monster.data.rig?.leftLeg || best.config.bone===this.monster.data.rig?.rightLeg) this.legDamage+=stagger
-    this.fx.hit(best.center,damage,name,color,damage>=88,false)
+    this.fx.hit(best.center,damage,name,color,damage>=88,false,
+      staggerScale < 1 ? 'magic-hit' : this.monster.data.metallic ? 'hit-armor' : 'hit-flesh')
     if (this.bossHp===0) {
       this.setBoss('defeat'); this.outcome='victory'; this.callout='討伐完了'; return
     }
@@ -498,23 +512,25 @@ export class Battle {
     switch(a.id) {
       case 'swipe':
         this.monster.animate('swipe',dt,.33+.32*t)
+        if(t>=.22 && first()) this.fx.sound('beast-swipe',m)
         dangerous=t>=.22 && flatDistance(p,m)<=range && Math.abs(wrap(yawTo(m,p)-this.bossYaw))<1.51
         break
       case 'rush':
         this.moveEntity(m,this.attackAim,14*dt*tempo,this.monster.data.radius,p,.44)
         this.monster.animate('rush',dt)
+        if(t>.045 && first()) this.fx.sound('beast-rush',m)
         dangerous=t>.045 && flatDistance(p,m)<=range && Math.abs(wrap(yawTo(m,p)-this.bossYaw))<1.18
         break
       case 'spin':
         this.monster.animate('spin',dt,t)
-        if (first()) this.fx.ring(m,1.1,range,.47,0xffb775)
+        if (first()) { this.fx.sound('beast-spin',m); this.fx.ring(m,1.1,range,.47,0xffb775) }
         dangerous=t>.12 && t<.94 && flatDistance(p,m)<=range
         break
       case 'leap':
         this.delta.copy(this.launch).lerp(this.target,smooth(t/.8)).sub(m).setY(0)
         this.moveEntity(m,this.delta,1,this.monster.data.radius,p,.44)
         this.monster.animate('leap',dt,t)
-        if(t>=.94 && first()) { this.fx.ring(m,1,range,.38,0xffa45d); this.fx.shake=Math.max(this.fx.shake,.16) }
+        if(t>=.94 && first()) { this.fx.sound('earth-slam',m); this.fx.ring(m,1,range,.38,0xffa45d); this.fx.shake=Math.max(this.fx.shake,.16) }
         dangerous=t>=.94 && flatDistance(p,m)<=range
         break
       case 'special': {
@@ -525,6 +541,7 @@ export class Battle {
         const speed=range/waveDuration
         const dtFromImpact=this.bt-.065
         if (dtFromImpact>=this.waveTime && this.milestone<waveCount) {
+          this.fx.sound('shockwave',source,this.milestone===0?1:.84)
           this.fx.ring(source,.3,range,waveDuration,this.milestone%2===0?0xff874f:0xffc769,.93)
           this.milestone++; this.waveTime+=gap
           this.fx.shake=Math.max(this.fx.shake,.15)
@@ -573,7 +590,7 @@ export class Battle {
       this.moveEntity(this.p,this.shove,guardResponse.push,.44,this.m,this.monster.data.radius)
     }
     this.hitPoint.copy(this.p); this.hitPoint.y+=1.55
-    this.fx.hit(this.hitPoint,damage,guarded?'防御':'',guarded?0xffdb9b:0xff7f69,a.knockdown&&!guarded,true)
+    this.fx.hit(this.hitPoint,damage,guarded?'防御':'',guarded?0xffdb9b:0xff7f69,a.knockdown&&!guarded,true,guarded?'guard-hit':'hit-player')
     if(this.hp<=0) { this.outcome='failure'; this.callout='力尽きた' }
     return true
   }
