@@ -9,6 +9,7 @@ const cues = {
   'fire-wave': .82, 'wing-dive': .68, vortex: .69, 'beam-charge': .52, 'beam-release': .76,
   'shield-on': .62, 'shield-break': .79, summon: .68, 'metal-swipe': .63,
   'feather-volley': .59, crystal: .52, 'crystal-burst': .68,
+  'kogobon-voice-1': .80, 'kogobon-voice-2': .82, 'kogobon-voice-3': .86,
   'quest-start': .60, 'quest-clear': .72, 'quest-failed': .64,
 } as const
 
@@ -160,7 +161,7 @@ export class BattleAudio {
 
     const source = context.createBufferSource()
     source.buffer = buffer
-    source.playbackRate.value = .954 + this.variation() * .093
+    source.playbackRate.value = cue.startsWith('kogobon-voice-') ? 1 : .954 + this.variation() * .093
     const gain = context.createGain()
     const { x, z, yaw } = this.listener
     const dx = (at?.x ?? x) - x, dz = (at?.z ?? z) - z
