@@ -42,7 +42,7 @@ button:focus-visible { outline: 2px solid #ffe3a6; outline-offset: 3px; }
 .eyebrow { display: flex; align-items: center; gap: 13px; color: var(--gold); font-size: 12px; font-weight: 700; letter-spacing: .22em; }
 .eyebrow::before { content:""; width: 31px; height: 1px; background: currentColor; }
 h1,h2 { margin: 17px 0 16px; font-family: "Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif; font-weight: 800; color: var(--paper); text-shadow: 0 4px 24px #141b189c; }
-h1 { font-size: clamp(53px,7.3cqw,113px); letter-spacing: .04em; line-height: .99; }
+h1 { font-size: clamp(36px,12.5cqw,64px); letter-spacing: .04em; line-height: .99; }
 h1 em { color: #f1cc8e; font-style: normal; }
 h2 { font-size: clamp(31px,5.2cqw,61px); line-height: 1.04; letter-spacing: .04em; }
 p { color: var(--muted); font-size: .94rem; margin: 12px 0 22px; line-height: 1.7; }

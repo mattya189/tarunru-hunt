@@ -84,9 +84,9 @@ export class Interface {
     const button = (cmd: Command, name: string, primary=false) => `<button class="${primary?'primary':'secondary'}" data-cmd="${cmd}">${name}${primary?'<span aria-hidden="true">→</span>':''}</button>`
     const settings = `<div class="options"><div class="settings"><span>画質</span><div role="group" aria-label="画質">${(Object.keys(qualityLabels) as Quality[]).map(q=>`<button data-quality="${q}" aria-pressed="${q===quality}">${qualityLabels[q]}</button>`).join('')}</div></div>
       <div class="settings bgm-settings"><span>戦闘BGM</span><div role="group" aria-label="戦闘BGM"><button data-bgm="on" aria-pressed="${this.music.enabled}">あり</button><button data-bgm="off" aria-pressed="${!this.music.enabled}">なし</button></div></div></div>`
-    if (screen==='loading') this.panel.innerHTML='<div class="eyebrow">SHIOSAI HUNT</div><h1>潮鳴りの狩場</h1><p role="status">闘技場を読み込み中…</p><div class="loading-line"></div>'
+    if (screen==='loading') this.panel.innerHTML='<div class="eyebrow">MEGANE HUNT</div><h1>メガネハント</h1><p role="status">闘技場を読み込み中…</p><div class="loading-line"></div>'
     if (screen==='title') this.panel.innerHTML=`
-      <div class="eyebrow">3D モンスター討伐</div><h1>潮鳴りの<br><em>狩場</em></h1>
+      <div class="eyebrow">3D モンスター討伐</div><h1>メガネ<em>ハント</em></h1>
       <p class="title-note">夕凪の石浜でモンスターを討伐する。</p>
       <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}${button('layout','操作配置')}</div>${settings}`
     const icon = (quest: (typeof quests)[number]) => `<img class="quest-icon" src="${questIcon(quest)}" alt="">`
