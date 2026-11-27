@@ -77,10 +77,11 @@ export class Interface {
     this.menu.hidden=!screen || screen==='layout'
     this.menu.dataset.screen=screen??''
     document.body.dataset.screen=screen??'battle'
-    this.hud.hidden=!!screen && screen!=='paused'
+    this.hud.hidden=!!screen && screen!=='paused' && screen!=='layout'
+    this.hud.inert=screen==='layout'
     this.touch.hidden=!!screen && screen!=='layout'
     this.touch.classList.toggle('keyboard-only',!this.coarse && screen!=='layout')
-    const flare=!!battle?.flare && (!screen || screen==='paused' || screen==='layout')
+    const flare=!!battle?.flare && (!screen || screen==='paused')
     this.flareStatus.hidden=!flare
     this.attackButton.textContent=flare?'魔弾':'斬撃'
     this.specialButton.innerHTML=flare?'フレア':'溜め斬り<small>長押し</small>'
@@ -174,7 +175,7 @@ export class Interface {
         <div class="menu-actions quest-actions">${button('start','狩りを始める',true)}${button('monsters','戻る')}</div>
         <div class="menu-actions quest-rankings">${button('boss-rankings','このモンスターのランキング')}${button('rankings','クリアタイムランキング')}</div>`
     }
-    if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><dl><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('layout','操作配置')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
+    if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><dl><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
     if (screen==='help') this.panel.innerHTML=`
       <div class="eyebrow">FIELD MANUAL</div><h2>狩りの操作</h2>
       <div class="manual-wrapper"><table><thead><tr><th>操作</th><th>スマホ</th><th>PC</th></tr></thead><tbody>
@@ -187,7 +188,7 @@ export class Interface {
       <tr><th>ガード</th><td>ガードを長押し</td><td>L を長押し</td></tr>
       <tr><th>ロックオン</th><td>敵のアイコンをタップ、照準で解除</td><td>アイコンをクリック、Qで切替</td></tr>
       <tr><th>一時停止</th><td>一時停止ボタン</td><td>Esc / P</td></tr></tbody></table></div>
-      <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。スマホでは縦向きで遊べる。「操作配置」でタッチ操作を調整できる。</p>
+      <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。スマホでは縦向きで遊べる。タイトル画面の「操作配置」でタッチ操作を調整できる。</p>
       <div class="menu-actions">${button('back','戻る',true)}</div>`
     if (screen==='victory' || screen==='failure') this.panel.innerHTML=`
       <div class="eyebrow">${screen==='victory'?'QUEST CLEARED':'QUEST FAILED'}</div>
@@ -287,7 +288,7 @@ export class Interface {
     container.append(form)
   }
   status(b: Battle, lock: boolean) {
-    if (this.current && this.current!=='paused') return
+    if (this.current && this.current!=='paused' && this.current!=='layout') return
     this.gauge(this.hp,b.hp,this.weapon.hp)
     this.gauge(this.stamina,Math.floor(b.stamina),this.weapon.stamina)
     this.write(this.bossName,b.monster.data.name)
@@ -309,7 +310,7 @@ export class Interface {
     this.charge.hidden=b.chargeValue===0
     this.charge.style.setProperty('--value',String(b.chargeValue))
     this.charge.classList.toggle('full',b.chargeValue>=.98)
-    this.banner.hidden=b.elapsed>2.1 || b.outcome!==null
+    this.banner.hidden=this.current==='layout' || b.elapsed>2.1 || b.outcome!==null
     this.write(this.banner,'クエスト開始')
     const button=document.querySelector('[data-action="lock"]')
     button?.classList.toggle('locked',lock)

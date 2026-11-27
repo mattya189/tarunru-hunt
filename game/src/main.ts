@@ -49,7 +49,6 @@ try {
 
 let screen: Screen | null='loading'
 let helpFrom: Screen='title'
-let layoutFrom: 'title' | 'paused'='title'
 let orientationBlocked=false
 let rankingFrom: 'title' | 'quest' | 'victory'='title'
 let difficulty: Difficulty=1
@@ -80,7 +79,7 @@ const reticles=new Reticles(model => {
   if (screen!==null || orientationBlocked) return
   battle.selectLockTarget(model)
 })
-const controlsLayout=new ControlLayout(() => switchTo(layoutFrom))
+const controlsLayout=new ControlLayout(() => switchTo('title'))
 updateViewport()
 landscapePhone.addEventListener('change',updateViewport)
 window.addEventListener('resize',updateViewport)
@@ -97,9 +96,13 @@ function switchTo(next: Screen | null) {
   reticles.clear()
   if(battle) battle.monster.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='boss-rankings' && next!=='rankings'
   ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty,next==='rankings' && rankingFrom==='title'?'greatsword':selectedHunter)
-  if (next==='layout') controlsLayout.open(!!battle?.flare)
-  else controlsLayout.close()
-  controlsLayout.refresh()
+  if (next==='layout') {
+    controlsLayout.open()
+    showBattlePreview()
+  } else {
+    controlsLayout.close()
+    controlsLayout.refresh()
+  }
   if(next===null && startCuePending) {
     startCuePending=false
     audio.play('quest-start')
@@ -224,10 +227,7 @@ function command(action: Command) {
     case 'retry': void startHunt(); break
     case 'resume': switchTo(null); break
     case 'layout':
-      if (screen==='title' || screen==='paused') {
-        layoutFrom=screen
-        switchTo('layout')
-      }
+      if (screen==='title') switchTo('layout')
       break
     case 'help': helpFrom=screen==='paused'?'paused':'title'; switchTo('help'); break
     case 'back': switchTo(helpFrom); break
@@ -259,6 +259,13 @@ function resize() {
   renderer.setSize(w,h,false)
   camera.resize(w,h)
   bloom?.resize(w,h)
+  if (screen==='layout') showBattlePreview()
+}
+
+function showBattlePreview() {
+  camera.reset(battle)
+  ui.status(battle,battle.lock)
+  reticles.render(battle,camera.camera)
 }
 function applyQuality(next: Quality) {
   quality=next

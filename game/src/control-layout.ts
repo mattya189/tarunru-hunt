@@ -30,6 +30,8 @@ function readLayout(): Layout {
 export class ControlLayout {
   private readonly surface = document.querySelector<HTMLElement>('#touch')!
   private readonly editor = document.querySelector<HTMLElement>('#control-editor')!
+  private readonly panelSide = this.editor.querySelector<HTMLButtonElement>('#layout-panel-side')!
+  private readonly panelToggle = this.editor.querySelector<HTMLButtonElement>('#layout-panel-toggle')!
   private readonly select = this.editor.querySelector<HTMLSelectElement>('#control-item')!
   private readonly range = this.editor.querySelector<HTMLInputElement>('#control-size')!
   private readonly output = this.editor.querySelector<HTMLOutputElement>('output')!
@@ -48,9 +50,15 @@ export class ControlLayout {
       const scale = this.range.valueAsNumber / 100
       this.change({ ...this.placement(this.selected, this.dimensions()), scale })
     })
+    this.bindButton('layout-panel-side', () => this.placePanel(this.editor.dataset.edge === 'top' ? 'bottom' : 'top'))
+    this.bindButton('layout-panel-toggle', () => {
+      this.collapsePanel(this.editor.dataset.collapsed !== 'true')
+      this.keepPanelClear()
+    })
     this.bindButton('layout-default', () => {
       this.draft = {}
       this.refresh()
+      this.keepPanelClear()
     })
     this.bindButton('layout-cancel', back)
     this.bindButton('layout-save', () => {
@@ -66,7 +74,9 @@ export class ControlLayout {
     })
     for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
       this.surface.addEventListener(eventName, event => {
-        if (event.pointerId === this.drag?.pointer) this.drag = undefined
+        if (event.pointerId !== this.drag?.pointer) return
+        this.cancelDrag()
+        this.keepPanelClear()
       })
     }
     this.editor.addEventListener('keydown', event => {
@@ -75,14 +85,15 @@ export class ControlLayout {
       event.preventDefault()
       const center = this.centers.get(this.selected)!
       this.placeAt(center.x + offset[0] * 5, center.y + offset[1] * 5)
+      this.keepPanelClear()
     })
   }
 
-  open(flare: boolean) {
+  open() {
     this.draft = { ...this.saved }
     this.editor.hidden = false
-    this.select.options[controls.indexOf('attack')].text = flare ? '魔弾' : labels.attack
-    this.select.options[controls.indexOf('charge')].text = flare ? 'フレア' : labels.charge
+    this.placePanel('top')
+    this.collapsePanel(false)
     this.surface.classList.add('editing')
     this.selectControl(this.selected)
     this.editor.querySelector<HTMLElement>('h2')!.focus({ preventScroll: true })
@@ -99,6 +110,7 @@ export class ControlLayout {
   cancelDrag() {
     const pointer = this.drag?.pointer
     this.drag = undefined
+    this.editor.classList.remove('dragging')
     if (pointer !== undefined && this.surface.hasPointerCapture(pointer)) this.surface.releasePointerCapture(pointer)
   }
 
@@ -106,11 +118,6 @@ export class ControlLayout {
     const screen = this.dimensions()
     const { width, height, gameWidth } = screen
     if (!width || !height) return
-    if (this.draft) {
-      const space = this.editor.offsetTop - this.surface.offsetTop - 12
-      this.surface.style.setProperty('--editor-scale', String(clamp(space / height, .14, 1)))
-    }
-
     for (const [id, node] of this.elements) {
       const choice = this.placement(id, screen)
       const size = Math.min(width, height, this.baseSize(id, gameWidth) * choice.scale)
@@ -183,6 +190,28 @@ export class ControlLayout {
     this.selected = id
     this.select.value = id
     this.refresh()
+    this.keepPanelClear()
+  }
+
+  private placePanel(edge: 'top' | 'bottom') {
+    this.editor.dataset.edge = edge
+    this.panelSide.textContent = edge === 'top' ? 'パネルを下へ' : 'パネルを上へ'
+  }
+
+  private collapsePanel(collapsed: boolean) {
+    this.editor.dataset.collapsed = String(collapsed)
+    this.panelToggle.setAttribute('aria-expanded', String(!collapsed))
+    this.panelToggle.textContent = collapsed ? '設定を開く' : 'たたむ'
+  }
+
+  private keepPanelClear() {
+    const control = this.elements.get(this.selected)!
+    const bounds = (this.selected === 'stick' ? control.querySelector('#stick')! : control).getBoundingClientRect()
+    const panel = this.editor.getBoundingClientRect()
+    if (bounds.top < panel.bottom && bounds.bottom > panel.top) {
+      const game = this.game.getBoundingClientRect()
+      this.placePanel((bounds.top + bounds.bottom) / 2 < game.top + game.height / 2 ? 'bottom' : 'top')
+    }
   }
 
   private beginDrag(event: PointerEvent) {
@@ -194,14 +223,15 @@ export class ControlLayout {
     const center = this.centers.get(id)!
     const point = this.pointerPosition(event)
     this.drag = { pointer: event.pointerId, offsetX: center.x - point.x, offsetY: center.y - point.y }
+    this.editor.classList.add('dragging')
     this.surface.setPointerCapture(event.pointerId)
   }
 
   private pointerPosition(event: PointerEvent) {
     const rect = this.surface.getBoundingClientRect()
     return {
-      x: (event.clientX - rect.left) * this.surface.clientWidth / rect.width,
-      y: (event.clientY - rect.top) * this.surface.clientHeight / rect.height,
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
     }
   }
 
