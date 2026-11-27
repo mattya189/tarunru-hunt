@@ -7,49 +7,67 @@
   <title>潮鳴りの狩場</title>
 </head>
 <body>
-  <canvas id="view" aria-label="3D闘技場"></canvas>
-  <section id="hud" hidden aria-label="戦闘情報">
-    <div class="battle-top">
-      <div class="battle-gauges">
-        <div class="gauge life" id="hp" role="meter" aria-label="体力"><i></i></div>
-        <div class="gauge stamina" id="stamina" role="meter" aria-label="スタミナ"><i></i></div>
-        <div id="flare-status" hidden>
-          <div class="gauge energy" id="energy" role="meter" aria-label="エネルギー"><i></i></div>
-          <span id="energy-value"></span>
-        </div>
-        <div class="boss-status">
-          <span id="boss-name"></span>
-          <div class="gauge boss-health" id="boss-hp" role="meter" aria-label="敵の体力"><i></i></div>
+  <div id="game">
+    <canvas id="view" aria-label="3D闘技場"></canvas>
+    <section id="hud" hidden aria-label="戦闘情報">
+      <div class="battle-top">
+        <div class="battle-gauges">
+          <div class="gauge life" id="hp" role="meter" aria-label="体力"><i></i></div>
+          <div class="gauge stamina" id="stamina" role="meter" aria-label="スタミナ"><i></i></div>
+          <div id="flare-status" hidden>
+            <div class="gauge energy" id="energy" role="meter" aria-label="エネルギー"><i></i></div>
+            <span id="energy-value"></span>
+          </div>
+          <div class="boss-status">
+            <span id="boss-name"></span>
+            <div class="gauge boss-health" id="boss-hp" role="meter" aria-label="敵の体力"><i></i></div>
+          </div>
         </div>
       </div>
-      <button id="pause" aria-label="一時停止"></button>
-    </div>
-    <div class="battle-alerts">
-      <span id="rage" hidden>怒り</span>
-      <div id="callout" aria-live="polite"></div>
-    </div>
-    <div id="charge-meter" hidden><i></i><b>溜め</b></div>
-    <div id="quest-banner" hidden></div>
-    <div id="numbers"></div>
-    <div id="key-hint">WASD 移動　 J 攻撃　 K 溜め　 Space 回避　 L ガード　 Q ロックオン</div>
+      <div class="battle-alerts">
+        <span id="rage" hidden>怒り</span>
+        <div id="callout" aria-live="polite"></div>
+      </div>
+      <div id="charge-meter" hidden><i></i><b>溜め</b></div>
+      <div id="quest-banner" hidden></div>
+      <div id="numbers"></div>
+      <div id="reticles" aria-hidden="true" hidden></div>
+      <div id="key-hint">WASD 移動　 J 攻撃　 K 溜め　 Space 回避　 L ガード　 Q ロックオン</div>
+    </section>
+    <section id="touch" hidden aria-label="タッチ操作">
+      <div id="stick-zone" data-control="stick">
+        <div id="stick" role="img" aria-label="移動スティック"><i></i></div>
+      </div>
+      <button class="target-button" data-action="lock" data-control="lock" aria-label="ロックオン">照準</button>
+      <button data-action="guard" data-control="guard">ガード</button>
+      <button data-action="attack" data-control="attack">斬撃</button>
+      <button data-action="dodge" data-control="dodge">回避</button>
+      <button data-action="charge" data-control="charge">溜め斬り<small>長押し</small></button>
+      <button id="pause" data-control="pause" aria-label="一時停止"></button>
+    </section>
+    <div id="shade"></div>
+    <main id="menu">
+      <div class="menu-card" id="panel"></div>
+      <div class="site-mark">SHIOSAI <span>／</span> HUNT</div>
+    </main>
+    <section id="control-editor" aria-labelledby="layout-title" hidden>
+      <h2 id="layout-title" tabindex="-1">操作配置</h2>
+      <p>操作をドラッグして移動。大きさも個別に調整できる。</p>
+      <label for="control-item">調整する操作</label>
+      <select id="control-item"></select>
+      <label for="control-size">大きさ</label>
+      <div class="layout-size"><input id="control-size" type="range" min="65" max="160" step="5"><output for="control-size"></output></div>
+      <div class="menu-actions">
+        <button type="button" class="secondary" id="layout-default">標準に戻す</button>
+        <button type="button" class="secondary" id="layout-cancel">キャンセル</button>
+        <button type="button" class="primary" id="layout-save">保存</button>
+      </div>
+    </section>
+  </div>
+  <section id="orientation-notice" role="status" hidden>
+    <h2>スマホを縦に戻して</h2>
+    <p>縦向きで『潮鳴りの狩場』を続けられる。</p>
   </section>
-  <section id="touch" hidden aria-label="タッチ操作">
-    <div id="stick-zone">
-      <div id="stick" role="img" aria-label="移動スティック"><i></i></div>
-    </div>
-    <button class="target-button" data-action="lock" aria-label="ロックオン">照準</button>
-    <div class="actions">
-      <button data-action="guard">ガード</button>
-      <button data-action="attack">斬撃</button>
-      <button data-action="dodge">回避</button>
-      <button data-action="charge">溜め斬り<small>長押し</small></button>
-    </div>
-  </section>
-  <div id="shade"></div>
-  <main id="menu">
-    <div class="menu-card" id="panel"></div>
-    <div class="site-mark">SHIOSAI <span>／</span> HUNT</div>
-  </main>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

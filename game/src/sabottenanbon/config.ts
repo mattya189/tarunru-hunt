@@ -4,6 +4,7 @@ import events from './attack_events.json'
 const maxHp=1000, enrageHp=550
 
 export const sabottenanbon: MonsterData = {
+  reticle: { offsetY: .60 },
   id: events.monster.id, name: events.monster.name, model: 'models/sabottenanbon/model_animated.glb',
   hp: maxHp, speed: 2.3, power: 1, scale: 1, yawOffset: 0, footOffset: .033, radius: .55,
   parts: [

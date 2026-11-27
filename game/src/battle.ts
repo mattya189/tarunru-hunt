@@ -136,6 +136,7 @@ export class Battle {
   }
 
   get lockTarget() { return this.m }
+  get reticleTargets(): readonly MonsterModel[] { return [this.monster] }
   get rageLabel() { return '怒り' }
   get defeatDuration() { return 1.65 }
   protected get guarding() { return this.guard }

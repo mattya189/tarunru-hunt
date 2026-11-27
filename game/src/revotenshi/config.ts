@@ -31,6 +31,7 @@ export const combat = {
 
 export const minion: MonsterData = {
   ...revotenshi, hp:Math.round(revotenshi.hp*combat.minionHpRatio),
+  reticle: { anchor: 'root', offsetY: .96 },
   scale:revotenshi.scale*combat.minionScale, radius:.45,
   parts: revotenshi.parts.map(part=>({...part,radius:part.radius*2.5})),
 }

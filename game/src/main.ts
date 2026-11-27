@@ -1,8 +1,9 @@
-import { ACESFilmicToneMapping, PCFShadowMap, Scene, SRGBColorSpace, Vector3, WebGLRenderer } from 'three'
+import { ACESFilmicToneMapping, PCFShadowMap, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
 import { Battle } from './battle'
 import { BattleMusic } from './battle-music'
 import { HuntCamera } from './camera'
 import { ContactShadow } from './contact'
+import { ControlLayout } from './control-layout'
 import { coast, greatsword, tidebeast, type MonsterData } from './config'
 import { Effects } from './effects'
 import { EmperorBattle } from './emperor/battle'
@@ -13,6 +14,7 @@ import { Controls } from './input'
 import { MonsterModel } from './monster-model'
 import { beginRun, finishRun, type HunterId, type RankingRun } from './rankings'
 import { recordClearTime } from './clear-times'
+import { Reticles } from './reticles'
 import { quests, type Difficulty } from './quests'
 import { Interface, type Command, type Quality, type Screen } from './ui'
 import { Arena } from './world'
@@ -32,6 +34,9 @@ import { KouenchoBattle } from './kouencho/battle'
 import { kouencho } from './kouencho/config'
 import './style.css'
 
+const game=document.querySelector<HTMLElement>('#game')!
+const orientationNotice=document.querySelector<HTMLElement>('#orientation-notice')!
+const landscapePhone=matchMedia('(orientation: landscape) and (pointer: coarse)')
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
 const music=new BattleMusic()
@@ -44,6 +49,8 @@ try {
 
 let screen: Screen | null='loading'
 let helpFrom: Screen='title'
+let layoutFrom: 'title' | 'paused'='title'
+let orientationBlocked=false
 let rankingFrom: 'title' | 'quest' | 'victory'='title'
 let difficulty: Difficulty=1
 let selectedMonster=tidebeast
@@ -68,21 +75,27 @@ const step=1/60
 const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,music,chooseHunter)
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')
-const lockPoint=new Vector3()
-const reticle=document.createElement('b')
-reticle.id='reticle'; reticle.hidden=true
-document.querySelector('#hud')!.append(reticle)
+const reticles=new Reticles()
+const controlsLayout=new ControlLayout(() => switchTo(layoutFrom))
+updateViewport()
+landscapePhone.addEventListener('change',updateViewport)
+window.addEventListener('resize',updateViewport)
+window.visualViewport?.addEventListener('resize',updateViewport)
 
 function switchTo(next: Screen | null) {
+  if (next===null && orientationBlocked) next='paused'
   if(next===null) music.resume()
   else music.pause()
   screen=next
   input.clear(); input.enabled=next===null
   accumulator=0
   dirty=true
-  reticle.hidden=true
+  reticles.clear()
   if(battle) battle.monster.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='boss-rankings' && next!=='rankings'
   ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty,next==='rankings' && rankingFrom==='title'?'greatsword':selectedHunter)
+  if (next==='layout') controlsLayout.open(!!battle?.flare)
+  else controlsLayout.close()
+  controlsLayout.refresh()
 }
 async function loadBattle(data:MonsterData) {
   const cached=battles.get(data.id)
@@ -176,6 +189,7 @@ async function startHunt() {
   } catch(error) { fail(error) }
 }
 function command(action: Command) {
+  if(orientationBlocked) return
   if(action==='refresh') { location.reload(); return }
   if(!battle) return
   switch(action) {
@@ -194,14 +208,37 @@ function command(action: Command) {
     case 'start':
     case 'retry': void startHunt(); break
     case 'resume': switchTo(null); break
+    case 'layout':
+      if (screen==='title' || screen==='paused') {
+        layoutFrom=screen
+        switchTo('layout')
+      }
+      break
     case 'help': helpFrom=screen==='paused'?'paused':'title'; switchTo('help'); break
     case 'back': switchTo(helpFrom); break
   }
 }
+function updateViewport() {
+  const blocked=landscapePhone.matches
+  if (blocked!==orientationBlocked) {
+    orientationBlocked=blocked
+    document.body.dataset.landscape=String(blocked)
+    game.inert=blocked
+    orientationNotice.hidden=!blocked
+    input.clear()
+    controlsLayout.cancelDrag()
+    if (blocked && screen===null) switchTo('paused')
+  }
+  resize()
+}
+
 function resize() {
+  if (orientationBlocked) return
+  controlsLayout.refresh()
   if(!renderer) return
+  const w=game.clientWidth,h=game.clientHeight
+  if (!w || !h) return
   dirty=true
-  const w=window.innerWidth,h=window.innerHeight
   const bounded=Math.min(devicePixelRatio||1,ratios[quality],Math.sqrt(3_400_000/(w*h)))
   renderer.setPixelRatio(bounded)
   renderer.setSize(w,h,false)
@@ -226,6 +263,7 @@ function frame(now: number) {
   if(screen==='error') return
   requestAnimationFrame(frame)
   const dt=Math.min(.07,Math.max(0,(now-latest)/1000)); latest=now
+  if(orientationBlocked) return
   if(input.take('pause') && battle && !battle.outcome) {
     if(screen===null) switchTo('paused')
     else if(screen==='paused') switchTo(null)
@@ -249,21 +287,7 @@ function frame(now: number) {
     }
     camera.update(dt,battle,lookX,fx.shake)
     fx.update(dt,p=>p.project(camera.camera))
-    if(battle.lock&&!battle.outcome) {
-      if(battle instanceof ShikoukiBattle || battle instanceof KogobonBattle || battle instanceof RavenBattle || battle instanceof KouenchoBattle) {
-        lockPoint.copy(battle.monster.parts[0].center)
-      } else if(battle instanceof SabotBattle) {
-        lockPoint.copy(battle.monster.parts[0].center)
-        lockPoint.y+=.60
-      } else if(battle instanceof RevotenshiBattle) {
-        const target=battle.lockTarget
-        if(target===battle.m) lockPoint.copy(battle.monster.parts[0].center)
-        else { lockPoint.copy(target); lockPoint.y+=.96 }
-      } else { lockPoint.copy(battle.m); lockPoint.y+=battle.monster.data.scale*3.22 }
-      lockPoint.project(camera.camera)
-      reticle.hidden=lockPoint.z<-1||lockPoint.z>1||Math.abs(lockPoint.x)>.98||Math.abs(lockPoint.y)>.97
-      reticle.style.left=`${(lockPoint.x*.5+.5)*100}%`; reticle.style.top=`${(.5-lockPoint.y*.5)*100}%`
-    } else reticle.hidden=true
+    reticles.render(battle,camera.camera)
     uiTimer+=dt
     if(uiTimer>=.05) { ui.status(battle,battle.lock); uiTimer=0 }
     if(battle.outcome&&battle.outcomeTime>(battle.outcome==='victory'?Math.max(2.45,battle.defeatDuration+.35):1.45)) switchTo(battle.outcome)
@@ -281,7 +305,7 @@ function frame(now: number) {
     if(quality!=='low' && runtime?.glowing && renderer.extensions.has('EXT_color_buffer_float')) {
       if(!bloom) {
         bloom=new BreathBloom(renderer,scene,camera.camera,effectData.effects.fire_breath.bloomThreshold)
-        bloom.resize(innerWidth,innerHeight)
+        bloom.resize(game.clientWidth,game.clientHeight)
       }
       bloom.render(runtime.glowLayer,effectData.quality[quality].bloom)
     } else renderer.render(scene,camera.camera)
@@ -293,6 +317,7 @@ function fail(error: unknown) {
   console.error(error)
   music.pause()
   screen='error'; input.clear(); input.enabled=false
+  reticles.clear(); controlsLayout.close()
   ui.show('error',quality,undefined,error instanceof Error?error.message:'3Dデータを読み込めなかった。')
 }
 async function init() {
@@ -313,12 +338,10 @@ async function init() {
     scene.add(hunter.root,battle.monster.root,hunterShadow.mesh,bossShadow.mesh)
     camera.reset(battle)
     applyQuality(quality)
-    addEventListener('resize',resize)
     document.addEventListener('visibilitychange',()=>{
       if(document.hidden) music.pause()
-      else if(screen===null && !battle.outcome) music.resume()
+      else if(!orientationBlocked && screen===null && !battle.outcome) music.resume()
     })
-    window.visualViewport?.addEventListener('resize',resize)
     canvas.addEventListener('webglcontextlost',event=>{
       event.preventDefault()
       fail(new Error('WebGLの描画が停止した。再読み込みで復帰できる。'))

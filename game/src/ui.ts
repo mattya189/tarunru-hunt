@@ -8,8 +8,8 @@ import { difficulties, difficultyInfo, quests, questIcon, type Difficulty } from
 import { listScores, monsterPlayerCounts, rankingTime, saveScore, type HunterId, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-export type Screen = 'loading' | 'title' | 'hunters' | 'difficulty' | 'monsters' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings'
-export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'hunters' | 'difficulty' | 'monsters' | 'rankings' | 'boss-rankings' | 'ranking-back'
+export type Screen = 'loading' | 'title' | 'hunters' | 'difficulty' | 'monsters' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings' | 'layout'
+export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'hunters' | 'difficulty' | 'monsters' | 'rankings' | 'boss-rankings' | 'ranking-back' | 'layout'
 export type Quality = 'low' | 'medium' | 'high'
 const hunterLabels: Record<HunterId,string> = {greatsword:'大剣',flare:'魔法使い'}
 const playerCountFormat = new Intl.NumberFormat('ja-JP')
@@ -66,19 +66,21 @@ export class Interface {
   }
   show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string, run?:RankingRun, result?:Promise<number|null>, difficulty:Difficulty=1, hunter:HunterId='greatsword') {
     this.current=screen
-    this.menu.hidden=!screen
+    this.menu.hidden=!screen || screen==='layout'
     this.menu.dataset.screen=screen??''
     document.body.dataset.screen=screen??'battle'
     this.hud.hidden=!!screen && screen!=='paused'
-    this.touch.hidden=!!screen||!this.coarse
-    const flare=!!battle?.flare && (!screen || screen==='paused')
+    this.touch.hidden=!!screen && screen!=='layout'
+    this.touch.classList.toggle('keyboard-only',!this.coarse && screen!=='layout')
+    const flare=!!battle?.flare && (!screen || screen==='paused' || screen==='layout')
     this.flareStatus.hidden=!flare
     this.attackButton.textContent=flare?'魔弾':'斬撃'
     this.specialButton.innerHTML=flare?'フレア':'溜め斬り<small>長押し</small>'
+    this.cache.delete(this.specialButton)
     this.specialButton.classList.toggle('flare-button',flare)
     this.specialButton.removeAttribute('aria-disabled')
     this.keyHint.textContent=`WASD 移動　 J ${flare?'魔弾':'攻撃'}　 K ${flare?'フレア':'溜め'}　 Space 回避　 L ガード　 Q ロックオン`
-    if (!screen) return
+    if (!screen || screen==='layout') return
     const button = (cmd: Command, name: string, primary=false) => `<button class="${primary?'primary':'secondary'}" data-cmd="${cmd}">${name}${primary?'<span aria-hidden="true">→</span>':''}</button>`
     const settings = `<div class="options"><div class="settings"><span>画質</span><div role="group" aria-label="画質">${(Object.keys(qualityLabels) as Quality[]).map(q=>`<button data-quality="${q}" aria-pressed="${q===quality}">${qualityLabels[q]}</button>`).join('')}</div></div>
       <div class="settings bgm-settings"><span>戦闘BGM</span><div role="group" aria-label="戦闘BGM"><button data-bgm="on" aria-pressed="${this.music.enabled}">あり</button><button data-bgm="off" aria-pressed="${!this.music.enabled}">なし</button></div></div></div>`
@@ -86,7 +88,7 @@ export class Interface {
     if (screen==='title') this.panel.innerHTML=`
       <div class="eyebrow">3D モンスター討伐</div><h1>潮鳴りの<br><em>狩場</em></h1>
       <p class="title-note">夕凪の石浜でモンスターを討伐する。</p>
-      <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}</div>${settings}`
+      <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}${button('layout','操作配置')}</div>${settings}`
     const icon = (quest: (typeof quests)[number]) => `<img class="quest-icon" src="${questIcon(quest)}" alt="">`
     const selected=quests.find(quest=>quest.monster.id===this.data.id)!
     if (screen==='hunters') this.panel.innerHTML=`
@@ -157,11 +159,11 @@ export class Interface {
         <div class="menu-actions quest-actions">${button('start','狩りを始める',true)}${button('monsters','戻る')}</div>
         <div class="menu-actions quest-rankings">${button('boss-rankings','このモンスターのランキング')}${button('rankings','クリアタイムランキング')}</div>`
     }
-    if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><dl><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
+    if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><dl><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('layout','操作配置')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
     if (screen==='help') this.panel.innerHTML=`
       <div class="eyebrow">FIELD MANUAL</div><h2>狩りの操作</h2>
       <div class="manual-wrapper"><table><thead><tr><th>操作</th><th>スマホ</th><th>PC</th></tr></thead><tbody>
-      <tr><th>移動</th><td>画面左下を押してドラッグ</td><td>WASD / 矢印</td></tr>
+      <tr><th>移動</th><td>移動スティックをドラッグ</td><td>WASD / 矢印</td></tr>
       <tr><th>視点</th><td>空いている画面を左右にスワイプ</td><td>マウスで左右にドラッグ</td></tr>
       <tr><th>攻撃</th><td>斬撃</td><td>J</td></tr>
       <tr><th>溜め攻撃</th><td>溜めを長押しして離す</td><td>K を長押しして離す</td></tr>
@@ -169,8 +171,8 @@ export class Interface {
       <tr><th>回避</th><td>回避</td><td>Space</td></tr>
       <tr><th>ガード</th><td>ガードを長押し</td><td>L を長押し</td></tr>
       <tr><th>ロックオン</th><td>照準</td><td>Q</td></tr>
-      <tr><th>一時停止</th><td>右上の一時停止ボタン</td><td>Esc / P</td></tr></tbody></table></div>
-      <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。${this.coarse?' 横画面にすると周囲を見渡しやすい。':''}</p>
+      <tr><th>一時停止</th><td>一時停止ボタン</td><td>Esc / P</td></tr></tbody></table></div>
+      <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。スマホでは縦向きで遊べる。「操作配置」でタッチ操作を調整できる。</p>
       <div class="menu-actions">${button('back','戻る',true)}</div>`
     if (screen==='victory' || screen==='failure') this.panel.innerHTML=`
       <div class="eyebrow">${screen==='victory'?'QUEST CLEARED':'QUEST FAILED'}</div>
