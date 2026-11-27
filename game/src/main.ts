@@ -5,6 +5,8 @@ import { HuntCamera } from './camera'
 import { ContactShadow } from './contact'
 import { coast, greatsword, tidebeast, type MonsterData } from './config'
 import { Effects } from './effects'
+import { EmperorBattle } from './emperor/battle'
+import { emperor } from './emperor/config'
 import { FlareModel } from './flare/model'
 import { HunterModel } from './hunter'
 import { Controls } from './input'
@@ -92,6 +94,10 @@ async function loadBattle(data:MonsterData) {
     const runtime=await AttackRuntime.load(scene,arena,monster,quality,profile)
     const encounter=new SabotBattle(monster,hunter,arena,fx,greatsword)
     encounter.attachRuntime(runtime)
+    next=encounter
+  } else if(data.id===emperor.id) {
+    const encounter=new EmperorBattle(monster,hunter,arena,fx,greatsword)
+    scene.add(encounter.warning)
     next=encounter
   } else if(data.id===revotenshi.id) {
     const clones=await Promise.all([MonsterModel.load(minion),MonsterModel.load(minion)])

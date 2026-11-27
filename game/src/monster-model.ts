@@ -1,14 +1,13 @@
 import { AnimationAction, AnimationClip, AnimationMixer, Color, Euler, Group, LoopOnce, LoopRepeat, Mesh, MeshStandardMaterial, Object3D, Quaternion, QuaternionKeyframeTrack, Texture, Vector3, VectorKeyframeTrack, type SkinnedMesh } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
-import type { MonsterData, Motion } from './config'
+import type { MonsterData, MonsterPose, Motion } from './config'
 import { batchRigidMeshes } from './rigid-meshes'
 
-type Pose = [number, number, number, number, number, number, number]
 type Parts = { config: MonsterData['parts'][number]; bone: Object3D; local: Vector3; center: Vector3 }
 const emberGlow = new Color(0xd45414)
 const eyeGlow = new Color(0xe63a92)
-const neutral: Pose = [0,0,0,0,0,0,0]
+const neutral: MonsterPose = [0,0,0,0,0,0,0]
 const axes: number[][] = []
 for (const x of [-1,0,1]) for (const y of [-1,0,1]) for (const z of [-1,0,1]) {
   if (x||y||z) axes.push([x,y,z])
@@ -98,12 +97,12 @@ export class MonsterModel {
     }
     this.parts = data.parts.map(config => ({ config, bone: bone(config.bone), local: new Vector3(...config.offset), center: new Vector3() }))
     this.mixer = new AnimationMixer(asset)
-    const create = (name: Motion, poses: Pose[]) => {
+    const create = (name: Motion, poses: readonly MonsterPose[]) => {
       const time = poses.map((_,i) => i/(poses.length-1))
       const rig = data.rig!
       const root = bone(rig.root)
       const q = new Quaternion(), e = new Euler()
-      const rotate = (key: string, getEuler: (p: Pose) => Euler) => new QuaternionKeyframeTrack(
+      const rotate = (key: string, getEuler: (p: MonsterPose) => Euler) => new QuaternionKeyframeTrack(
         key+'.quaternion', time, poses.flatMap(p => q.setFromEuler(getEuler(p)).toArray()))
       return new AnimationClip(name, 1, [
         rotate(rig.root,p => e.set(p[0],p[1],p[2])),
@@ -133,6 +132,12 @@ export class MonsterModel {
     }
     for (const [name,clip] of Object.entries(custom)) {
       if (!this.actions.has(name as Motion)) this.actions.set(name as Motion,this.mixer.clipAction(clip))
+    }
+    if (data.rig && data.extraPoses) {
+      for (const [name,poses] of Object.entries(data.extraPoses)) {
+        const motion=name as Motion
+        this.actions.set(motion,this.mixer.clipAction(create(motion,poses)))
+      }
     }
     this.animate('idle',0)
   }
