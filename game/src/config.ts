@@ -1,4 +1,4 @@
-export type Motion = 'emperorFang' | 'emperorCutoff' | 'emperorComboFirst' | 'emperorComboSecond' | 'emperorComboLast' | 'emperorRest' | 'fireShot' | 'featherDrop' | 'fireBreath' | 'ultimateCharge' | 'kouenchoRecovery' | 'ravenArms' | 'ravenArmsRage' | 'ravenLaser' | 'ravenFeathers' | 'ravenMarks' | 'kogobonJumpCharge' | 'kogobonJump' | 'kogobonScreamCharge' | 'kogobonScream' | 'kogobonSlamCharge' | 'kogobonSlam' | 'kogobonRecovery' | 'kogobonExhausted' | 'shikoukiPierce' | 'shikoukiBarrage' | 'shikoukiTakeoff' | 'shikoukiHover' | 'shikoukiBerserk' | 'beamPrep' | 'beamFire' | 'beamRecover' | 'spinRecover' | 'tornadoPrep' | 'tornadoRelease' | 'tornadoRecover' | 'summon' | 'barrierIdle' | 'barrierBreak' | 'downLoop' | 'rageIdle' | 'attack_01' | 'attack_05' | 'special_01' | 'enrage' | 'getUp' | 'turnRight' | 'leapPrep' | 'spinPrep' | 'idle' | 'walk' | 'run' | 'turn' | 'roar' | 'swipe' | 'rush' | 'spin' | 'leap' | 'special' | 'hit' | 'stagger' | 'fall' | 'defeat'
+export type Motion = 'wandaBack' | 'wandaLeft' | 'wandaRight' | 'wandaWind' | 'wandaCross' | 'wandaBomb' | 'wandaPull' | 'wandaWave' | 'wandaBeam' | 'wandaDive' | 'wandaTornado' | 'wandaCollapse' | 'wandaJudgment' | 'emperorFang' | 'emperorCutoff' | 'emperorComboFirst' | 'emperorComboSecond' | 'emperorComboLast' | 'emperorRest' | 'fireShot' | 'featherDrop' | 'fireBreath' | 'ultimateCharge' | 'kouenchoRecovery' | 'ravenArms' | 'ravenArmsRage' | 'ravenLaser' | 'ravenFeathers' | 'ravenMarks' | 'kogobonJumpCharge' | 'kogobonJump' | 'kogobonScreamCharge' | 'kogobonScream' | 'kogobonSlamCharge' | 'kogobonSlam' | 'kogobonRecovery' | 'kogobonExhausted' | 'shikoukiPierce' | 'shikoukiBarrage' | 'shikoukiTakeoff' | 'shikoukiHover' | 'shikoukiBerserk' | 'beamPrep' | 'beamFire' | 'beamRecover' | 'spinRecover' | 'tornadoPrep' | 'tornadoRelease' | 'tornadoRecover' | 'summon' | 'barrierIdle' | 'barrierBreak' | 'downLoop' | 'rageIdle' | 'attack_01' | 'attack_05' | 'special_01' | 'enrage' | 'getUp' | 'turnRight' | 'leapPrep' | 'spinPrep' | 'idle' | 'walk' | 'run' | 'turn' | 'roar' | 'swipe' | 'rush' | 'spin' | 'leap' | 'special' | 'hit' | 'stagger' | 'fall' | 'defeat'
 export type AttackId = 'swipe' | 'rush' | 'spin' | 'leap' | 'special'
 export interface Attack {
   id: AttackId
@@ -36,6 +36,7 @@ export interface MonsterData {
   emitters?: readonly string[]
   rigidMeshes?: boolean
   groundRigid?: boolean
+  flightFloorContact?: number
   rig?: Record<'root' | 'head' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg', string>
   rage: { hpRatio: number; speed: number; tempo: number; chainDelay: number }
 }
@@ -74,6 +75,7 @@ export interface WeaponData {
   charge: WeaponStrike
 }
 export interface FieldData {
+  landscape?: 'summit'
   name: string
   radius: number
   playerSpawn: readonly [number, number]

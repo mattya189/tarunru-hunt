@@ -288,6 +288,21 @@ RECIPES = {
     'quest-start': (.86,.24,.63,lambda s: quest_signal(s,'start')),
     'quest-clear': (1.65,.37,.70,lambda s: quest_signal(s,'clear')),
     'quest-failed': (1.32,.34,.65,lambda s: quest_signal(s,'failed')),
+    'wanda-flap': (.84,.34,.60,lambda s: (s.air(85,1600,.27,.8,0,.06), s.body(88,36,.26,.67,.07),s.air(520,5300,.22,.36,.22))),
+    'wanda-blade': (.32,.26,.60,lambda s: (cut(s,.96,.34),s.air(650,6900,.11,.62,.05))),
+    'wanda-slash': (.77,.41,.73,lambda s: (cut(s,1.78,.79,True),s.body(75,28,.31,.8,.15),s.air(450,3700,.30,.43,.24))),
+    'wanda-fall': (.92,.37,.64,lambda s: (s.body(360,43,.40,.68,.15),s.air(680,6100,.27,.57,.18,.11),s.ring(378,.18,.32,.03))),
+    'wanda-burst': (.76,.37,.68,lambda s: (earth(s,1.14),s.air(180,4100,.20,.38,.1),s.ring(234,.21,.23,.09))),
+    'wanda-gravity': (2.25,.46,.71,lambda s: (s.body(46,102,.82,.75),s.air(88,1130,.64,.58,.24,.21,True),s.ring(74,.88,.35,.66,(1,1.5,2.02,3.04)))),
+    'wanda-wave': (.64,.45,.70,lambda s: (royal(s,1),s.body(74,26,.21,.9),s.air(290,2800,.17,.54,.05))),
+    'wanda-beam': (1.92,.39,.70,lambda s: (energy(s,1.56,False,True),s.air(460,5800,.59,.51,.1,.10),s.body(143,57,.64,.42,.28))),
+    'wanda-dive': (.74,.37,.71,lambda s: (s.air(130,4600,.24,.75,.03,.09,True),s.body(140,35,.28,.73,.18),cut(s,1.78,.38,True))),
+    'wanda-vortex': (1.37,.43,.66,lambda s: (wind(s,True),s.air(58,870,.51,.55,.23,.12,True),s.debris(9,.65,830,4500,.25,.32))),
+    'wanda-charge': (2.10,.54,.69,lambda s: (charge(s,True),s.ring(147,.84,.57,.60),s.air(80,830,.64,.55,.55,.18,True))),
+    'wanda-ultimate': (1.91,.55,.77,lambda s: (royal(s,3),earth(s,1.54),s.ring(86,.52,.50,.29),s.air(150,4300,.62,.49,.23))),
+    'wanda-rage': (1.23,.48,.74,lambda s: (s.body(92,48,.57,.66),energy(s,1.2,True,True),s.ring(183,.37,.47,.35),s.air(190,3500,.31,.52,.32))),
+    'wanda-hit': (.39,.25,.63,lambda s: (strike(s,.93,.68,.55),s.ring(189,.14,.36,.027))),
+    'wanda-death': (1.29,.43,.72,lambda s: (earth(s,1.45),s.ring(94,.51,.40,.23),s.debris(12,.63,230,4600,.46,.22))),
 }
 
 

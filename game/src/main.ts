@@ -32,6 +32,8 @@ import { RavenBattle } from './raven/battle'
 import { raven } from './raven/config'
 import { KouenchoBattle } from './kouencho/battle'
 import { kouencho } from './kouencho/config'
+import { WandaBattle } from './wanda/battle'
+import { summit, wanda } from './wanda/config'
 import './style.css'
 
 const game=document.querySelector<HTMLElement>('#game')!
@@ -60,6 +62,8 @@ let startCuePending=false
 let renderer: WebGLRenderer
 let scene: Scene
 let arena: Arena
+let shore: Arena
+let mountaintop: Arena | undefined
 let bloom: BreathBloom | undefined
 let hunter: HunterModel
 const battles=new Map<string,Battle>()
@@ -114,42 +118,61 @@ async function loadBattle(data:MonsterData) {
   const cached=battles.get(data.id)
   if(cached) return cached
   const monster=await MonsterModel.load(data)
+  const field=data.id===wanda.id ? mountaintop ??= new Arena(scene,summit) : shore
+  field.root.visible=field===arena
   let next:Battle
   const profile=sabotProfiles.get(data.id)
   if(profile) {
-    const runtime=await AttackRuntime.load(scene,arena,monster,quality,profile,(cue,point,level)=>fx.sound(cue,point,level))
-    const encounter=new SabotBattle(monster,hunter,arena,fx,greatsword)
+    const runtime=await AttackRuntime.load(scene,field,monster,quality,profile,(cue,point,level)=>fx.sound(cue,point,level))
+    const encounter=new SabotBattle(monster,hunter,field,fx,greatsword)
     encounter.attachRuntime(runtime)
     next=encounter
   } else if(data.id===emperor.id) {
-    const encounter=new EmperorBattle(monster,hunter,arena,fx,greatsword)
+    const encounter=new EmperorBattle(monster,hunter,field,fx,greatsword)
     scene.add(encounter.warning)
     next=encounter
   } else if(data.id===revotenshi.id) {
     const clones=await Promise.all([MonsterModel.load(minion),MonsterModel.load(minion)])
-    const encounter=new RevotenshiBattle(monster,hunter,arena,fx,greatsword)
+    const encounter=new RevotenshiBattle(monster,hunter,field,fx,greatsword)
     encounter.attach(scene,clones)
     next=encounter
   } else if(data.id===shikouki.id) {
-    const encounter=new ShikoukiBattle(monster,hunter,arena,fx,greatsword)
+    const encounter=new ShikoukiBattle(monster,hunter,field,fx,greatsword)
     scene.add(encounter.visuals.root)
     next=encounter
   } else if(data.id===kogobon.id) {
-    const encounter=new KogobonBattle(monster,hunter,arena,fx,greatsword)
+    const encounter=new KogobonBattle(monster,hunter,field,fx,greatsword)
     scene.add(encounter.warning)
     next=encounter
   } else if(data.id===kouencho.id) {
-    const encounter=new KouenchoBattle(monster,hunter,arena,fx,greatsword)
+    const encounter=new KouenchoBattle(monster,hunter,field,fx,greatsword)
+    scene.add(encounter.visuals.root)
+    next=encounter
+  } else if(data.id===wanda.id) {
+    const encounter=new WandaBattle(monster,hunter,field,fx,greatsword)
+    encounter.visuals.quality=quality
     scene.add(encounter.visuals.root)
     next=encounter
   } else if(data.id===raven.id) {
-    const encounter=new RavenBattle(monster,hunter,arena,fx,greatsword)
+    const encounter=new RavenBattle(monster,hunter,field,fx,greatsword)
     scene.add(encounter.visuals.root)
     next=encounter
-  } else next=new Battle(monster,hunter,arena,fx,greatsword)
+  } else next=new Battle(monster,hunter,field,fx,greatsword)
   battles.set(data.id,next)
   return next
 }
+
+function updateArena() {
+  const next=battle instanceof WandaBattle ? mountaintop! : shore
+  if(next!==arena) {
+    arena.root.visible=false
+    arena=next
+    arena.activate(scene)
+    camera.setArena(arena)
+    applyQuality(quality)
+  }
+}
+
 function chooseHunter(value:string) {
   if(screen!=='hunters' || (value!=='greatsword' && value!=='flare')) return
   selectedHunter=value
@@ -193,6 +216,7 @@ async function startHunt() {
       scene.add(battle.monster.root)
     }
     battle.selectHunter(model)
+    updateArena()
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
     rankingRun=await beginRun(battle.monster.data.id,selectedHunter).catch(()=>undefined)
     rankingResult=undefined
@@ -210,7 +234,15 @@ function command(action: Command) {
   switch(action) {
     case 'title':
       huntStarted=undefined; startCuePending=false
-      battle.selectHunter(); battle.reset(); switchTo('title')
+      battle.selectHunter(); battle.reset()
+      if(battle instanceof WandaBattle) {
+        scene.remove(battle.monster.root)
+        battle=battles.get(tidebeast.id)!
+        battle.reset()
+        scene.add(battle.monster.root)
+        updateArena()
+      }
+      switchTo('title')
       break
     case 'hunters': switchTo('hunters'); break
     case 'difficulty': switchTo('difficulty'); break
@@ -278,7 +310,10 @@ function applyQuality(next: Quality) {
   }
   arena.sun.shadow.needsUpdate=true
   fx.limit=quality==='low'?6:quality==='medium'?11:16
-  for(const encounter of battles.values()) if(encounter instanceof SabotBattle) encounter.attacksRuntime.setQuality(quality)
+  for(const encounter of battles.values()) {
+    if(encounter instanceof SabotBattle) encounter.attacksRuntime.setQuality(quality)
+    if(encounter instanceof WandaBattle) encounter.visuals.quality=quality
+  }
   resize()
 }
 function frame(now: number) {
@@ -321,6 +356,7 @@ function frame(now: number) {
   }
   const moving=screen===null||screen==='title'||screen==='help'&&helpFrom==='title'
   if (dirty||moving) {
+    renderer.toneMappingExposure=1.17*(1-battle.fieldDarkness)
     hunterShadow.follow(battle.p,.64)
     bossShadow.follow(battle.m,battle instanceof ShikoukiBattle ? 1.18 : battle.bossState==='attack' && battle.callout==='跳躍プレス'?.46:.72)
     if (quality!=='low'||frameCount++%2===0||dirty) renderer.shadowMap.needsUpdate=true
@@ -352,7 +388,8 @@ async function init() {
     renderer.shadowMap.enabled=true; renderer.shadowMap.type=PCFShadowMap
     renderer.shadowMap.autoUpdate=false
     scene=new Scene()
-    arena=new Arena(scene,coast)
+    shore=arena=new Arena(scene,coast)
+    shore.activate(scene)
     fx=new Effects(audio); scene.add(fx.root)
     camera=new HuntCamera(arena)
     hunter=new HunterModel()

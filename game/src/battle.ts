@@ -151,7 +151,9 @@ export class Battle {
   protected defaultLockTarget() { return this.monster }
   private get aimedMonster() { return this.lockedMonster ?? this.defaultLockTarget() }
   get rageLabel() { return '怒り' }
+  get fieldDarkness() { return 0 }
   get defeatDuration() { return 1.65 }
+  protected get bossGroundRadius() { return this.monster.data.radius }
   protected get guarding() { return this.guard }
   protected get attackDamageMultiplier() { return this.monster.data.power*(this.rage?1.1:1) }
 
@@ -164,6 +166,7 @@ export class Battle {
   protected moveEntity(pos: Vector3, motion: Vector3, speed: number, radius: number, target: Vector3, targetRadius: number) {
     pos.addScaledVector(motion,speed)
     this.arena.resolve(pos,radius)
+    if(targetRadius===0) return
     const dist = flatDistance(pos,target), min = radius+targetRadius
     if (dist < min) {
       const x = pos.x-target.x, z=pos.z-target.z
@@ -217,13 +220,13 @@ export class Battle {
         this.fx.sound('sword-charge',this.p)
       } else {
         pose=this.guard?'guard':magnitude>.045?'run':'idle'
-        this.moveEntity(this.p,dir,(this.guard?1.7:this.weapon.walk)*dt,.44,this.m,this.monster.data.radius)
+        this.moveEntity(this.p,dir,(this.guard?1.7:this.weapon.walk)*dt,.44,this.m,this.bossGroundRadius)
       }
     }
     if (this.playerState==='charge') {
       this.chargeValue=clamp(this.pt/1.16,.015,1); phase=this.chargeValue
       this.playerYaw += wrap(angle-this.playerYaw)*dt*(this.lock?10:2.5)
-      this.moveEntity(this.p,dir,dt*1.1,.44,this.m,this.monster.data.radius)
+      this.moveEntity(this.p,dir,dt*1.1,.44,this.m,this.bossGroundRadius)
       pose='charge'
       if (release || (!input.held('charge') && !charge) || this.pt>=1.92) {
         this.power=this.pt>=1.12?2.12:this.pt>=.52?1.60:1
@@ -241,7 +244,7 @@ export class Battle {
       if (phase<1 && (this.lock || (flatDistance(this.p,target)<4.0 && Math.abs(wrap(angle-this.playerYaw))<1.1))) {
         this.playerYaw += wrap(angle-this.playerYaw)*Math.min(1,10*dt)
       }
-      if (phase>.72 && phase<1.67) this.moveEntity(this.p,forward(this.playerYaw,this.delta),s.lunge*dt,.44,this.m,this.monster.data.radius)
+      if (phase>.72 && phase<1.67) this.moveEntity(this.p,forward(this.playerYaw,this.delta),s.lunge*dt,.44,this.m,this.bossGroundRadius)
       if (this.pt>=duration) {
         if (this.queued && this.useStamina(5)) { this.beginSwing(this.combo+1,false); phase=0 }
         else { this.setPlayer('free'); pose='idle'; phase=0 }
@@ -249,14 +252,14 @@ export class Battle {
     }
     if (this.playerState==='dodge') {
       pose='dodge'; phase=clamp(this.pt/.59,0,1)
-      this.moveEntity(this.p,this.roll,this.weapon.roll*(1-.66*phase)*dt,.44,this.m,this.monster.data.radius)
+      this.moveEntity(this.p,this.roll,this.weapon.roll*(1-.66*phase)*dt,.44,this.m,this.bossGroundRadius)
       if (phase>=1) { this.setPlayer('free'); pose='idle' }
     }
     if (this.playerState==='hit' || this.playerState==='down' || this.playerState==='rise') {
       pose=this.playerState
       const duration=pose==='hit'?.42:pose==='down'?.79:.49
       phase=clamp(this.pt/duration,0,1)
-      if (pose!=='rise' && this.pt<.24) this.moveEntity(this.p,this.shove,(pose==='down'?5:3)*dt,.44,this.m,this.monster.data.radius)
+      if (pose!=='rise' && this.pt<.24) this.moveEntity(this.p,this.shove,(pose==='down'?5:3)*dt,.44,this.m,this.bossGroundRadius)
       if (phase>=1) this.setPlayer(pose==='down'?'rise':'free')
     }
     this.hunter.root.rotation.y=this.playerYaw
@@ -309,9 +312,7 @@ export class Battle {
     if(!spell && secondary) return secondary
     if(!best) return secondary || -1
     if(blocked || !spell && !this.acceptBossDamage()) return secondary
-    const dealt=Math.min(this.bossHp,damage)
-    this.applyMonsterHit(best,damage,spell??'エネルギーショット',spell?0xff9537:0xffb070,.40)
-    return dealt
+    return this.applyMonsterHit(best,this.magicBossDamage(damage),spell??'エネルギーショット',spell?0xff9537:0xffb070,.40)
   }
 
   private startDodge(direction: Vector3, magnitude: number) {
@@ -342,16 +343,20 @@ export class Battle {
   }
 
   private applyMonsterHit(best:MonsterModel['parts'][number],damage:number,name=best.config.name,color=0xffce79,staggerScale=1) {
+    damage=this.preserveBossHealth(damage)
+    if(damage<=0) return 0
+    const dealt=Math.min(this.bossHp,damage)
     this.bossHp=Math.max(0,this.bossHp-damage)
     const stagger=damage*best.config.stagger*staggerScale
     this.poise+=stagger
     if (best.config.bone===this.monster.data.rig?.leftLeg || best.config.bone===this.monster.data.rig?.rightLeg) this.legDamage+=stagger
     this.fx.hit(best.center,damage,name,color,damage>=88,false,
       staggerScale < 1 ? 'magic-hit' : this.monster.data.metallic ? 'hit-armor' : 'hit-flesh')
+    this.onBossHit(staggerScale<1,dealt)
     if (this.bossHp===0) {
-      this.setBoss('defeat'); this.outcome='victory'; this.callout='討伐完了'; return
+      this.setBoss('defeat'); this.outcome='victory'; this.callout='討伐完了'; return dealt
     }
-    if (!this.canInterruptBoss() || this.bossState==='fall' || this.bossState==='stagger' || this.bossState==='rage') return
+    if (!this.canInterruptBoss() || this.bossState==='fall' || this.bossState==='stagger' || this.bossState==='rage') return dealt
     if (this.recentlyStaggered<=0 && (this.legDamage>=this.monster.data.ai.topple || this.poise>=this.monster.data.ai.topple*1.4)) {
       this.legDamage=this.poise=0; this.recentlyStaggered=4.5
       this.setBoss('fall'); this.callout='転倒 · 大きな隙'
@@ -361,8 +366,12 @@ export class Battle {
     } else if (this.bossState==='approach' || this.bossState==='turn' || this.bossState==='search') {
       this.setBoss('hit')
     }
+    return dealt
   }
 
+  protected preserveBossHealth(damage:number) { return damage }
+  protected magicBossDamage(damage:number) { return damage }
+  protected onBossHit(_magic:boolean,_damage:number) {}
   protected strikeSecondary(_damage:number,_volume?:HitVolume,_area=false) { return 0 }
   protected acceptBossDamage() { return true }
 
@@ -568,14 +577,14 @@ export class Battle {
   protected damagePlayer(
     a: Pick<Attack,'damage' | 'knockdown'>, source: Vector3,
     multiplier = this.attackDamageMultiplier, damageScale = 1,
-    guardEffect?: { damageScale: number; push: number } | 'dodge-only',
+    guardEffect?: { damageScale: number; push: number } | 'dodge-only' | 'unguardable',
   ) {
     const dodgeOnly=guardEffect==='dodge-only'
-    const guardResponse=dodgeOnly?undefined:guardEffect
+    const guardResponse=typeof guardEffect==='object'?guardEffect:undefined
     const dodging=this.playerState==='dodge' && this.pt>=.065 && this.pt<=.34
     if (dodging || !dodgeOnly && (this.immune>0 || this.playerState==='rise' || this.playerState==='down')) return false
     const toward=yawTo(this.p,source)
-    const guarded=!dodgeOnly && this.guard && Math.abs(wrap(toward-this.playerYaw))<=1.30 && this.useStamina(a.knockdown?23:15)
+    const guarded=guardEffect!=='dodge-only' && guardEffect!=='unguardable' && this.guard && Math.abs(wrap(toward-this.playerYaw))<=1.30 && this.useStamina(a.knockdown?23:15)
     const damage=guarded && guardResponse
       ? Math.round(a.damage*multiplier*guardResponse.damageScale)*damageScale
       : Math.max(1,Math.round(a.damage*multiplier*(guarded?.24:1)))*damageScale
@@ -587,7 +596,7 @@ export class Battle {
       forward(toward+Math.PI,this.shove)
     } else if (guardResponse?.push) {
       forward(toward+Math.PI,this.shove)
-      this.moveEntity(this.p,this.shove,guardResponse.push,.44,this.m,this.monster.data.radius)
+      this.moveEntity(this.p,this.shove,guardResponse.push,.44,this.m,this.bossGroundRadius)
     }
     this.hitPoint.copy(this.p); this.hitPoint.y+=1.55
     this.fx.hit(this.hitPoint,damage,guarded?'防御':'',guarded?0xffdb9b:0xff7f69,a.knockdown&&!guarded,true,guarded?'guard-hit':'hit-player')

@@ -6,6 +6,7 @@ import { batchRigidMeshes } from './rigid-meshes'
 
 type Parts = { config: MonsterData['parts'][number]; bone: Object3D; local: Vector3; center: Vector3 }
 const emberGlow = new Color(0xd45414)
+const monarchGlow = new Color(0xe82ca0)
 const eyeGlow = new Color(0xe63a92)
 const neutral: MonsterPose = [0,0,0,0,0,0,0]
 const axes: number[][] = []
@@ -52,6 +53,7 @@ export class MonsterModel {
   private motion?: Motion
   private readonly emitters = new Map<string, Object3D>()
   private mantling = false
+  private accentGlow = -1
   private flightOffset = 0
   groundHeight?: (x:number,z:number)=>number
   private support: { mesh: Mesh; indices: number[] }[] = []
@@ -75,7 +77,7 @@ export class MonsterModel {
     const bones: string[] = []
     asset.traverse(object => {
       if (object instanceof Mesh) {
-        if(!data.rigidMeshes || data.groundRigid) this.support.push({mesh:object,indices:contactVertices(object)})
+        if(!data.rigidMeshes || data.groundRigid || data.flightFloorContact!==undefined) this.support.push({mesh:object,indices:contactVertices(object)})
         object.castShadow = !data.rigidMeshes
         object.receiveShadow = false
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
@@ -151,6 +153,16 @@ export class MonsterModel {
     this.visual.position.y=this.data.footOffset*this.data.scale+lift
   }
 
+  setAccentGlow(strength:number) {
+    if(strength===this.accentGlow) return
+    this.accentGlow=strength
+    for(const [material,original] of this.materials) {
+      if(!/^(Jade blade|Violet crown enamel|Crown cabochon|Sage feather keratin)/.test(material.name)) continue
+      material.emissive.copy(original.color).lerp(monarchGlow,strength)
+      material.emissiveIntensity=original.intensity+strength*.39
+    }
+  }
+
   setEmberGlow(strength: number) {
     for (const [material,original] of this.materials) {
       if (!/^(Oxidized crimson armor|Heat-tempered copper ridge|Coal and ember plumage)/.test(material.name)) continue
@@ -224,9 +236,11 @@ export class MonsterModel {
     // including the original Defeat clip, whose unadjusted body crosses the floor.
     let lowest=Infinity
     const terrain=this.groundHeight
-    for (const {mesh,indices} of this.support) for (const index of indices) {
-      const position=mesh.getVertexPosition(index,this.contact).applyMatrix4(mesh.matrixWorld)
-      lowest=Math.min(lowest,position.y-(terrain?.(position.x,position.z)??this.root.position.y))
+    if(this.data.flightFloorContact===undefined || this.flightOffset<this.data.flightFloorContact) {
+      for (const {mesh,indices} of this.support) for (const index of indices) {
+        const position=mesh.getVertexPosition(index,this.contact).applyMatrix4(mesh.matrixWorld)
+        lowest=Math.min(lowest,position.y-(terrain?.(position.x,position.z)??this.root.position.y))
+      }
     }
     const base=this.data.footOffset*this.data.scale+this.flightOffset
     const contact=this.visual.position.y-lowest

@@ -6,14 +6,16 @@ import { sabottenanbon, sabottenanbonOvergrowth } from './sabottenanbon/config'
 import { shikouki } from './shikouki/config'
 import { raven } from './raven/config'
 import { kouencho } from './kouencho/config'
+import { summit, wanda } from './wanda/config'
 
 export const difficultyInfo = {
   1: { name: '★1', description: '初級' },
   2: { name: '★2', description: '中級' },
   3: { name: '★3', description: '上級' },
+  4: { name: '★4', description: '超上級' },
   emperor: { name: 'エンペラー', description: '最高難度' },
 } as const
-export const difficulties = [1, 2, 3, 'emperor'] as const
+export const difficulties = [1, 2, 3, 4, 'emperor'] as const
 export type Difficulty = typeof difficulties[number]
 
 interface HuntQuest {
@@ -21,6 +23,9 @@ interface HuntQuest {
   name: string
   difficulty: Difficulty
   icon: string
+  field?: string
+  species?: string
+  englishName?: string
   attacks: string
   advice: readonly string[]
 }
@@ -92,6 +97,17 @@ export const quests: readonly HuntQuest[] = [
       '結晶は大剣で破壊できる。光線が結晶に当たると分岐し、斬撃が当たると結晶が爆発する。',
       'HP60%以下で怒り、25%以下で暴走する。紫煌天獄では着地点の予告から離れ、着地後のダウンを狙う。',
       '紫煌天獄の着地衝撃波は直撃で144ダメージ。回避が間に合わないときは着地点を向いてガードする。',
+    ],
+  },
+  {
+    monster: wanda, name: wanda.name, difficulty: 4, icon: 'wanda-butterfly-king',
+    field: summit.name, species: '天翼皇種 · 風／重力', englishName: 'Wanda Butterfly King',
+    attacks: '天翼刃、皇刃十字斬、天空爆撃、重力吸引、三連天空波、天断光線、超高速降下斬撃、追跡暴風渦、必殺技「天空崩壊」「天皇終焉陣」',
+    advice: [
+      '地上の青緑の影を攻撃すれば、上空の本体に届く。影をタップしてロックオンできる。',
+      '三連天空波は足元に波が届く瞬間に回避。急降下は予告線の横に抜けるか、ガードでしのぐ。',
+      '天空崩壊では青緑の安全地帯に入る。天皇終焉陣では光線と一緒に時計回りに動き、最後の紫の円から離れる。',
+      'どちらの必殺技も、終了後に3秒の反撃チャンスがある。',
     ],
   },
   {

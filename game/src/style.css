@@ -241,3 +241,14 @@ body[data-screen="layout"] .monster-reticle { pointer-events:none; }
 .gauge.energy i { background:linear-gradient(90deg,#dd465a,#ffb05e); }
 #touch .actions .flare-button { background:#802a39f5; border-color:#ffae91; }
 #touch .actions .flare-button[aria-disabled="true"] { opacity:.60; }
+
+.difficulty-button[data-difficulty="4"],
+.quest-list[data-difficulty="4"] .quest-row {
+  border-color: #cc5ba89e;
+  background: linear-gradient(110deg, #512245d9, #241b2ee8);
+}
+.difficulty-button[data-difficulty="4"]:hover,
+.quest-list[data-difficulty="4"] .quest-row:hover { border-color: #f592ce; }
+.difficulty-button[data-difficulty="4"] strong,
+.quest-heading[data-difficulty="4"] .quest-level { color: #f796d1; }
+.quest-heading[data-difficulty="4"] small { color: #d2bed4; }
