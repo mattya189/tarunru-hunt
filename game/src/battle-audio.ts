@@ -9,6 +9,7 @@ const cues = {
   'fire-wave': .82, 'wing-dive': .68, vortex: .69, 'beam-charge': .52, 'beam-release': .76,
   'shield-on': .62, 'shield-break': .79, summon: .68, 'metal-swipe': .63,
   'feather-volley': .59, crystal: .52, 'crystal-burst': .68,
+  'quest-start': .60, 'quest-clear': .72, 'quest-failed': .64,
 } as const
 
 export type SoundCue = keyof typeof cues

@@ -218,6 +218,31 @@ def royal(s, waves=1):
     s.ring(174,.25,.46,.034,(1,1.38,2.13,2.85))
 
 
+def quest_signal(s, outcome):
+    # Forged-metal overtones and a low drum bind the three signals together.
+    if outcome == 'start':
+        notes = ((.01, 294, .11), (.13, 440, .13), (.25, 587, .21))
+        s.body(144, 53, .10, .55)
+        s.air(420, 2700, .074, .44, .01)
+    elif outcome == 'clear':
+        notes = ((.02, 294, .16), (.18, 440, .20), (.35, 494, .19),
+                 (.55, 587, .37), (.55, 370, .26), (.55, 220, .31))
+        s.body(122, 46, .16, .65)
+        s.body(141, 53, .18, .60, .54)
+        s.air(530, 3200, .17, .48, .56, .018)
+    else:
+        notes = ((.04, 262, .18), (.22, 208, .24), (.44, 131, .35))
+        s.body(101, 38, .23, .95)
+        s.air(220, 1630, .12, .58, .015)
+        s.ring(173, .27, .26, .41, (1, 1.42, 2.04))
+
+    for when, pitch, decay in notes:
+        s.ring(pitch, decay, .49, when, (1, 2.01, 2.61, 4.18))
+        tone = s.sweep(pitch * .986, pitch, .073, .19)
+        s.add(tone * s.envelope(.017, decay * 1.17), .40, when)
+        s.air(1850, 5900, .027, .16, when, .005)
+
+
 # Duration, reflection level, individual peak cap, and render recipe.
 RECIPES = {
     'sword-light': (.32,.19,.64,lambda s: cut(s)),
@@ -260,6 +285,9 @@ RECIPES = {
     'feather-volley': (.42,.27,.63,lambda s: spray(s,True)),
     'crystal': (.68,.38,.64,crystal),
     'crystal-burst': (.87,.42,.71,lambda s: crystal(s,True)),
+    'quest-start': (.86,.24,.63,lambda s: quest_signal(s,'start')),
+    'quest-clear': (1.65,.37,.70,lambda s: quest_signal(s,'clear')),
+    'quest-failed': (1.32,.34,.65,lambda s: quest_signal(s,'failed')),
 }
 
 

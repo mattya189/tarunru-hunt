@@ -57,6 +57,7 @@ let selectedMonster=tidebeast
 let selectedHunter:HunterId='greatsword'
 let flareModel:FlareModel|undefined
 let huntStarted: number | undefined
+let startCuePending=false
 let renderer: WebGLRenderer
 let scene: Scene
 let arena: Arena
@@ -99,6 +100,12 @@ function switchTo(next: Screen | null) {
   if (next==='layout') controlsLayout.open(!!battle?.flare)
   else controlsLayout.close()
   controlsLayout.refresh()
+  if(next===null && startCuePending) {
+    startCuePending=false
+    audio.play('quest-start')
+  }
+  if(next==='victory') audio.play('quest-clear')
+  if(next==='failure') audio.play('quest-failed')
 }
 async function loadBattle(data:MonsterData) {
   const cached=battles.get(data.id)
@@ -188,6 +195,7 @@ async function startHunt() {
     rankingResult=undefined
     battle.reset(); camera.reset(battle)
     huntStarted=performance.now()
+    startCuePending=true
     switchTo(null)
     ui.status(battle,battle.lock)
   } catch(error) { fail(error) }
@@ -197,7 +205,10 @@ function command(action: Command) {
   if(action==='refresh') { location.reload(); return }
   if(!battle) return
   switch(action) {
-    case 'title': huntStarted=undefined; battle.selectHunter(); battle.reset(); switchTo('title'); break
+    case 'title':
+      huntStarted=undefined; startCuePending=false
+      battle.selectHunter(); battle.reset(); switchTo('title')
+      break
     case 'hunters': switchTo('hunters'); break
     case 'difficulty': switchTo('difficulty'); break
     case 'monsters': switchTo('monsters'); break
