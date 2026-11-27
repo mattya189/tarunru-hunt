@@ -5,6 +5,13 @@ import { clamp, flatDistance, forward, wrap, yawTo } from '../math'
 import type { SabotAttack } from './config'
 import { AttackRuntime, timelineFor } from './attack-runtime'
 
+const stateVoices = {
+  search: 'sabottenanbon-voice-4',
+  rage: 'sabottenanbon-voice-5',
+  fall: 'sabottenanbon-voice-6',
+  defeat: 'sabottenanbon-voice-7',
+} as const
+
 export class SabotBattle extends Battle {
   private runtime!:AttackRuntime
   private readyAt:Record<SabotAttack,number>={attack_01:0,attack_05:0,special_01:0}
@@ -39,6 +46,9 @@ export class SabotBattle extends Battle {
       this.readyAt[id]=this.runtime.time+this.runtime.profile.attacks[id].cooldown
     }
     if(state==='fall') this.standingUp=false
+    if (this.runtime && this.bossState!==state && state in stateVoices) {
+      this.fx.sound(stateVoices[state as keyof typeof stateVoices],this.m)
+    }
     super.setBoss(state)
   }
 
