@@ -5,13 +5,14 @@ import { maxEnergy } from './flare/combat'
 import { clamp } from './math'
 import { bestClearTime } from './clear-times'
 import { difficulties, quests, questIcon, type Difficulty } from './quests'
-import { listScores, rankingTime, saveScore, type HunterId, type RankingRun } from './rankings'
+import { listScores, monsterPlayerCounts, rankingTime, saveScore, type HunterId, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
 export type Screen = 'loading' | 'title' | 'hunters' | 'difficulty' | 'monsters' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings'
 export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'hunters' | 'difficulty' | 'monsters' | 'rankings' | 'boss-rankings' | 'ranking-back'
 export type Quality = 'low' | 'medium' | 'high'
 const hunterLabels: Record<HunterId,string> = {greatsword:'大剣',flare:'魔法使い'}
+const playerCountFormat = new Intl.NumberFormat('ja-JP')
 const qualityLabels: Record<Quality,string> = {low:'低',medium:'中',high:'高'}
 const clock = (seconds: number) => {
   seconds=Math.floor(seconds)
@@ -100,10 +101,12 @@ export class Interface {
       <div class="difficulty-list">${difficulties.map(level=>
         `<button class="secondary difficulty-button" data-difficulty="${level}"><strong>★${level}</strong><span>${['初級','中級','上級'][level-1]}</span></button>`).join('')}</div>
       <div class="menu-actions">${button('hunters','戻る')}</div>`
+    const count=(boss:string)=>`<span class="player-count" data-player-count="${boss}">集計中…</span>`
     if (screen==='monsters') this.panel.innerHTML=`
       <h2>★${difficulty}のモンスター</h2>
       <ul class="quest-list" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
-        `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<strong>${quest.name}</strong><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
+        `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<span class="quest-name"><strong>${quest.name}</strong>${count(quest.monster.id)}</span><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
+      <p class="player-count-note">挑戦者数はブラウザ単位で集計。</p>
       <div class="menu-actions">${button('difficulty','戻る')}</div>`
     if (screen==='rankings' || screen==='boss-rankings') {
       const dedicated=screen==='boss-rankings'
@@ -113,6 +116,7 @@ export class Interface {
           <label for="ranking-boss">討伐対象</label>
           <select id="ranking-boss" class="ranking-field">${quests.map(quest=>
             `<option value="${quest.monster.id}"${quest.monster.id===this.data.id?' selected':''}>${quest.name}</option>`).join('')}</select>`}
+        <p class="player-count-note">${count(selected.monster.id)}</p>
         <div class="ranking-hunters settings"><div role="group" aria-label="ランキングの部門">${(Object.keys(hunterLabels) as HunterId[]).map(id=>
           `<button type="button" data-ranking-hunter="${id}" aria-pressed="${id===hunter}">${hunterLabels[id]}</button>`).join('')}</div></div>
         <div id="ranking-list" aria-live="polite"></div>
@@ -122,7 +126,14 @@ export class Interface {
       const boss=this.panel.querySelector<HTMLSelectElement>('#ranking-boss')
       let category=hunter
       const refresh=()=>void this.refreshRankings(boss?.value??this.data.id,category,list)
-      boss?.addEventListener('change',refresh)
+      const playerCount=this.panel.querySelector<HTMLElement>('[data-player-count]')!
+      const counts=monsterPlayerCounts()
+      void this.showPlayerCounts([playerCount],counts)
+      boss?.addEventListener('change',()=>{
+        playerCount.dataset.playerCount=boss.value
+        void this.showPlayerCounts([playerCount],counts)
+        refresh()
+      })
       const tabs=this.panel.querySelectorAll<HTMLButtonElement>('[data-ranking-hunter]')
       for(const tab of tabs) tab.addEventListener('click',()=>{
         const next=tab.dataset.rankingHunter as HunterId
@@ -137,6 +148,7 @@ export class Interface {
       const best=bestClearTime(this.data.id,hunter)
       this.panel.innerHTML=`
         <div class="quest-heading">${icon(selected)}<div><span class="quest-level">★${selected.difficulty}</span><h2>${selected.name}</h2></div></div>
+        <p class="player-count-note">${count(this.data.id)} · ブラウザ単位</p>
         <dl class="quest-facts">
           <div><dt>クリアタイム<span>この端末の自己ベスト · ${hunterLabels[hunter]}</span></dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>
           <div><dt>主な攻撃</dt><dd>${selected.attacks}</dd></div>
@@ -171,7 +183,20 @@ export class Interface {
       this.panel.innerHTML=`<div class="eyebrow">読み込みエラー</div><h2>狩場を開けない</h2><p id="error-detail"></p><div class="menu-actions">${button('refresh','再読み込み',true)}</div>`
       select('error-detail').textContent=error??'読み込みに失敗した。'
     }
+    if (screen==='monsters' || screen==='quest') {
+      void this.showPlayerCounts(this.panel.querySelectorAll<HTMLElement>('[data-player-count]'),monsterPlayerCounts())
+    }
     this.panel.scrollTop=0
+  }
+
+  private async showPlayerCounts(labels:Iterable<HTMLElement>, request:ReturnType<typeof monsterPlayerCounts>) {
+    const entries=Array.from(labels,label=>({label,boss:label.dataset.playerCount!}))
+    for(const {label} of entries) label.textContent='集計中…'
+    const counts=await request.catch(()=>undefined)
+    for(const {label,boss} of entries) {
+      if (!label.isConnected || label.dataset.playerCount!==boss) continue
+      label.textContent=counts ? `挑戦者 ${playerCountFormat.format(counts.get(boss)??0)}人` : '挑戦者数を取得できません'
+    }
   }
   private async refreshRankings(selected:string, hunter:HunterId, list:HTMLElement) {
     const loading=document.createElement('p')

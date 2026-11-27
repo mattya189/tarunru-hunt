@@ -203,7 +203,11 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 .quest-list { list-style:none; max-height:min(320px,46dvh); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; padding:3px; touch-action:pan-y; }
 .quest-row { display:grid; grid-template-columns:54px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; text-align:left; padding:6px 10px 6px 7px; letter-spacing:normal; }
 .quest-icon { width:54px; height:54px; object-fit:contain; display:block; }
-.quest-row > span { color:var(--gold); }
+.quest-name { display:grid; gap:3px; }
+.player-count { font-size:.78rem; font-variant-numeric:tabular-nums; }
+.quest-name .player-count,.player-count-note { color:var(--muted); }
+.player-count-note { font-size:.76rem; margin:6px 0 12px; }
+.quest-row > span[aria-hidden] { color:var(--gold); }
 .quest-heading,.ranking-monster { display:flex; align-items:center; gap:13px; }
 .quest-heading .quest-icon { width:clamp(66px,18vw,90px); height:auto; flex:none; }
 .quest-heading h2 { margin:3px 0 0; font-size:clamp(23px,4.5vw,39px); line-height:1.16; letter-spacing:.01em; }

@@ -1,5 +1,5 @@
 const endpoint='https://rncgojznjoreexjcpgwq.supabase.co/rest/v1/rpc/hunt_'
-// This publishable key grants access only to the public ranking RPCs.
+// This publishable key grants access only to public ranking and player-count RPCs.
 const apiKey='sb_publishable_DFU6z0RkXapoX8w_K_UnaQ_dPIDQTze'
 const playerKey='shiosai-ranking-player'
 let player:string|undefined
@@ -21,6 +21,11 @@ async function rpc<T>(operation:string, body:Record<string,string>):Promise<T> {
     if(!response.ok) throw new Error('Ranking request failed')
     return await response.json() as T
   } finally { clearTimeout(timeout) }
+}
+
+export async function monsterPlayerCounts() {
+  const rows=await rpc<{boss:string;player_count:number}[]>('monster_player_counts',{})
+  return new Map(rows.map(row=>[row.boss,row.player_count]))
 }
 
 export function listScores(boss:string,hunter:HunterId) {
