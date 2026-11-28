@@ -24,7 +24,8 @@ import { AttackRuntime, effectData } from './sabottenanbon/attack-runtime'
 import { SabotBattle } from './sabottenanbon/battle'
 import { BreathBloom } from './sabottenanbon/bloom'
 import { RevotenshiBattle } from './revotenshi/battle'
-import { minion, revotenshi } from './revotenshi/config'
+import { VariantBattle } from './revotenshi/variant-battle'
+import { minion, revotenshi, variant } from './revotenshi/config'
 import { ShikoukiBattle } from './shikouki/battle'
 import { shikouki } from './shikouki/config'
 import { KogobonBattle } from './kogobon/battle'
@@ -141,6 +142,10 @@ async function loadBattle(data:MonsterData, field:Arena, fieldReady?:Promise<boo
     next=encounter
   } else if(data.id===emperor.id) {
     const encounter=new EmperorBattle(monster,hunter,field,fx,greatsword)
+    scene.add(encounter.warning)
+    next=encounter
+  } else if(data.id===variant.id) {
+    const encounter=new VariantBattle(monster,hunter,field,fx,greatsword)
     scene.add(encounter.warning)
     next=encounter
   } else if(data.id===revotenshi.id) {

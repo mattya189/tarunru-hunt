@@ -420,6 +420,8 @@ export class Battle {
     return this.magicAim.copy(monster.parts[0]?.center ?? monster.root.position)
   }
 
+  protected magicPartBonus(_part: MonsterModel['parts'][number]) { return 1 }
+
   private strikeWithMagic(volume:HitVolume,damage:number,spell?:string) {
     if(this.outcome) return -1
     const best=this.findStrike(this.monster,volume)
@@ -428,7 +430,7 @@ export class Battle {
     if(!spell && secondary) return secondary
     if(!best) return secondary || -1
     if(blocked || !spell && !this.acceptBossDamage()) return secondary
-    return this.applyMonsterHit(best,this.magicBossDamage(damage),spell??'エネルギーショット',spell?0xff9537:0xffb070,.40)
+    return this.applyMonsterHit(best,this.magicBossDamage(damage)*this.magicPartBonus(best),spell??'エネルギーショット',spell?0xff9537:0xffb070,.40)
   }
 
   private startDodge(direction: Vector3, magnitude: number) {

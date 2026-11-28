@@ -47,3 +47,17 @@ export const cues = {
   barrier:eventTime('Summon','barrier_on'),
   minions:eventTime('Summon','spawn_minions'),
 }
+
+export const variant: MonsterData = {
+  ...revotenshi, id: 'revotenshi-variant', name: 'レボテンシ亜種', fieldId: 'FIELD_002', hp: 1220,
+  rage: {...revotenshi.rage, hpRatio: .5},
+  parts: [
+    ...revotenshi.parts.map(part => ({...part, multiplier: 1})),
+    ...(['L','R'] as const).map(side => ({
+      name: side === 'L' ? '左翼爪' : '右翼爪', bone: 'Wing_'+side+'_Pivot',
+      offset: [side === 'L' ? -1.45 : 1.45,.55,.08] as [number,number,number],
+      radius: .82, multiplier: 1, stagger: 1,
+    })),
+  ],
+  motions: {...revotenshi.motions, leapPrep: {clip: 'leapPrep'}, sweepLeft: {clip: 'sweepLeft'}, sweepRight: {clip: 'sweepRight'}, tailPrep: {clip: 'tailPrep'}, clawPrep: {clip: 'clawPrep'}, fissurePrep: {clip: 'fissurePrep'}, sweepLeftHit: {clip: 'sweepLeftHit'}, sweepRightHit: {clip: 'sweepRightHit'}, leapHit: {clip: 'leapHit'}, tailHit: {clip: 'tailHit'}, clawHit: {clip: 'clawHit'}, fissureHit: {clip: 'fissureHit'}},
+}

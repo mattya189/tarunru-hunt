@@ -4,6 +4,8 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
 import type { MonsterData, MonsterPose, Motion } from './config'
 import { batchRigidMeshes } from './rigid-meshes'
 
+import { prepareVariant } from './revotenshi/variant-model'
+
 type Parts = { config: MonsterData['parts'][number]; bone: Object3D; local: Vector3; center: Vector3 }
 const emberGlow = new Color(0xd45414)
 const monarchGlow = new Color(0xe82ca0)
@@ -63,6 +65,7 @@ export class MonsterModel {
     const loader = new GLTFLoader()
     if(data.meshopt) loader.setMeshoptDecoder(MeshoptDecoder)
     const asset = await loader.loadAsync(import.meta.env.BASE_URL + data.model)
+    if (data.id === 'revotenshi-variant') prepareVariant(asset.scene,asset.animations)
     return new MonsterModel(data, asset.scene, asset.animations)
   }
 
@@ -202,6 +205,9 @@ export class MonsterModel {
   duration(motion: Motion) { return this.actions.get(motion)?.getClip().duration ?? 1 }
 
   setEnraged(value: boolean) {
+    if (this.data.id === 'revotenshi-variant') {
+      for (const [material] of this.materials) if (material.name === 'Copper wing lining') material.emissive.set(value ? 0xde580c : 0x281005)
+    }
     if (!this.data.rig) return
     for (const [material,original] of this.materials) {
       material.emissive.copy(original.color)
