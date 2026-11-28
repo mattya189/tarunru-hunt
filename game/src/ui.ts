@@ -373,7 +373,7 @@ export class Interface {
     this.gauge(this.bossHp,b.bossHp,b.monster.data.hp)
     const notice=b.callout || (lock?'ロックオン中':'')
     const reverse=b.reverseMovement>0 ? `移動反転 ${Math.ceil(b.reverseMovement)}秒` : ''
-    this.write(this.callout,[reverse,notice].filter(Boolean).join(' · '))
+    this.write(this.callout,[reverse,b.statusNotice,notice].filter(Boolean).join(' · '))
     this.callout.classList.toggle('warning',b.bossState==='windup'||b.bossState==='rage'||b.reverseMovement>0)
     this.rage.hidden=!b.rage
     this.write(this.rage,b.rageLabel)

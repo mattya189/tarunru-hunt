@@ -28,6 +28,8 @@ import { VariantBattle } from './revotenshi/variant-battle'
 import { minion, revotenshi, variant } from './revotenshi/config'
 import { ShikoukiBattle } from './shikouki/battle'
 import { shikouki } from './shikouki/config'
+import { KouperBattle } from './kouper/battle'
+import { kouper } from './kouper/config'
 import { KogobonBattle } from './kogobon/battle'
 import { kogobon } from './kogobon/config'
 import { RavenBattle } from './raven/battle'
@@ -169,6 +171,12 @@ async function loadBattle(data:MonsterData, field:Arena, fieldReady?:Promise<boo
   } else if(data.id===wanda.id) {
     const encounter=new WandaBattle(monster,hunter,field,fx,greatsword)
     encounter.visuals.quality=quality
+    scene.add(encounter.visuals.root)
+    next=encounter
+  } else if(data.id===kouper.id) {
+    const encounter=new KouperBattle(monster,hunter,field,fx,greatsword)
+    encounter.visuals.quality=quality
+    encounter.enableDebug(game)
     scene.add(encounter.visuals.root)
     next=encounter
   } else if(data.id===raven.id) {
@@ -336,7 +344,7 @@ function applyQuality(next: Quality) {
   fx.limit=quality==='low'?6:quality==='medium'?11:16
   for(const encounter of battles.values()) {
     if(encounter instanceof SabotBattle) encounter.attacksRuntime.setQuality(quality)
-    if(encounter instanceof WandaBattle) encounter.visuals.quality=quality
+    if(encounter instanceof WandaBattle || encounter instanceof KouperBattle) encounter.visuals.quality=quality
   }
   resize()
 }
@@ -380,6 +388,7 @@ function frame(now: number) {
     battle.monster.animate('idle',dt)
     camera.update(dt,battle,0,0,false,titleTime+.01)
   }
+  if(battle instanceof KouperBattle) battle.frame(dt,screen===null && !battle.outcome)
   const moving=screen===null||screen==='title'||screen==='help'&&helpFrom==='title'
   if (dirty||moving) {
     renderer.toneMappingExposure=1.17*(1-battle.fieldDarkness)

@@ -17,6 +17,10 @@ const cues = {
   'wanda-burst': .74, 'wanda-gravity': .71, 'wanda-wave': .80, 'wanda-beam': .74,
   'wanda-dive': .73, 'wanda-vortex': .67, 'wanda-charge': .75, 'wanda-ultimate': .85,
   'wanda-rage': .80, 'wanda-hit': .68, 'wanda-death': .80,
+  'paper-head': .66, 'paper-double': .63, 'paper-slide': .66, 'paper-sweep': .67,
+  'paper-leap': .74, 'paper-spin': .72, 'paper-chain': .66, 'paper-stamp': .58,
+  'paper-warning': .67, 'paper-pop': .73, 'paper-stick': .61, 'paper-clear': .65,
+  'paper-ultimate': .79, 'paper-final': .85, 'paper-rage': .76,
   'quest-start': .60, 'quest-clear': .72, 'quest-failed': .64,
 } as const
 
