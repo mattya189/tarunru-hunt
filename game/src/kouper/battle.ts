@@ -143,6 +143,10 @@ export class KouperBattle extends Battle {
 
   override update(...args:Parameters<Battle['update']>) {
     super.update(...args)
+    this.afterOpponentStep()
+  }
+
+  protected override afterOpponentStep() {
     if(!this.outcome || this.terminated) return
     this.terminated=true
     this.plan=undefined; this.pattern=undefined; this.stamps.length=0; this.touched.clear(); this.spent.clear()
@@ -242,6 +246,7 @@ export class KouperBattle extends Battle {
   }
 
   private decide(combo:boolean) {
+    if(!this.mayStartAttack) return false
     this.nextThink=this.elapsed+tactics.rethink
     const start=performance.now()
     this.danger.update(this.elapsed,this.stamps.map(stamp=>plannedPaper(stamp)))
@@ -409,6 +414,7 @@ export class KouperBattle extends Battle {
   }
 
   private checkPhase() {
+    if(!this.mayStartAttack) return false
     const ratio=this.bossHp/this.monster.data.hp
     if(!this.rage && ratio<=this.monster.data.rage.hpRatio) {
       this.rage=true

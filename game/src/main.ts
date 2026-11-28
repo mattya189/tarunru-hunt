@@ -6,6 +6,8 @@ import { ContactShadow } from './contact'
 import { ControlLayout } from './control-layout'
 import { greatsword, tidebeast, type MonsterData } from './config'
 import { Effects } from './effects'
+import { DuoBattle } from './duo/battle'
+import { kouperDuo, paperAndRaven, ravenDuo } from './duo/config'
 import { defaultFieldId, fieldFor, type FieldId } from './fields'
 import { EmperorBattle } from './emperor/battle'
 import { emperor } from './emperor/config'
@@ -76,7 +78,7 @@ let battle: Battle
 let titleBattle: Battle
 let rankingRun: RankingRun | undefined
 let rankingResult: Promise<number|null> | undefined
-let hunterShadow: ContactShadow, bossShadow: ContactShadow
+let hunterShadow: ContactShadow, bossShadow: ContactShadow, partnerShadow:ContactShadow
 let dirty=true, frameCount=0
 let latest=performance.now(), titleTime=0, accumulator=0, uiTimer=0
 const step=battleStep
@@ -101,7 +103,7 @@ function switchTo(next: Screen | null) {
   accumulator=0
   dirty=true
   reticles.clear()
-  if(battle) battle.monster.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='quest-guide' && next!=='boss-rankings' && next!=='rankings'
+  if(battle) for(const model of battle.sceneModels) model.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='quest-guide' && next!=='boss-rankings' && next!=='rankings'
   ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty,next==='rankings' && rankingFrom==='title'?'greatsword':selectedHunter,clearResult)
   if (next==='layout') {
     controlsLayout.open()
@@ -135,6 +137,16 @@ async function loadBattle(data:MonsterData, field:Arena, fieldReady?:Promise<boo
   const key=battleKey(data,field)
   const cached=battles.get(key)
   if(cached) return cached
+  if(data.id===paperAndRaven.id) {
+    const [paperModel,ravenModel]=await Promise.all([MonsterModel.load(kouperDuo),MonsterModel.load(ravenDuo),fieldReady])
+    const paperBoss=new KouperBattle(paperModel,hunter,field,fx,greatsword)
+    const ravenBoss=new RavenBattle(ravenModel,hunter,field,fx,greatsword)
+    const encounter=new DuoBattle(paperBoss,ravenBoss,hunter,field,fx,greatsword)
+    encounter.setQuality(quality)
+    encounter.attach(scene)
+    battles.set(key,encounter)
+    return encounter
+  }
   const [monster]=await Promise.all([MonsterModel.load(data),fieldReady])
   let next:Battle
   const profile=sabotProfiles.get(data.id)
@@ -236,14 +248,14 @@ async function startHunt() {
     if(battle!==next) {
       battle.reset()
       battle.selectHunter()
-      scene.remove(battle.monster.root)
+      scene.remove(...battle.sceneModels.map(model=>model.root))
       if(battle instanceof RavenBattle || battle instanceof KouenchoBattle) {
         battle.visuals.dispose()
         battle.monster.dispose()
         battles.delete(battleKey(battle.monster.data,battle.field))
       }
       battle=next
-      scene.add(battle.monster.root)
+      scene.add(...battle.sceneModels.map(model=>model.root))
     }
     battle.selectHunter(model)
     updateArena()
@@ -253,7 +265,7 @@ async function startHunt() {
       await renderer.compileAsync(scene,camera.camera)
     }
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
-    rankingRun=await beginRun(battle.monster.data.id,selectedHunter).catch(()=>undefined)
+    rankingRun=await beginRun(battle.questData.id,selectedHunter).catch(()=>undefined)
     rankingResult=undefined
     clearResult=undefined
     huntStarted=performance.now()
@@ -271,10 +283,10 @@ function command(action: Command) {
       void audio.prepareAmbiance()
       battle.selectHunter(); battle.reset()
       if(battle.field.data.id!==defaultFieldId) {
-        scene.remove(battle.monster.root)
+        scene.remove(...battle.sceneModels.map(model=>model.root))
         battle=titleBattle
         battle.reset()
-        scene.add(battle.monster.root)
+        scene.add(...battle.sceneModels.map(model=>model.root))
         updateArena()
       }
       switchTo('title')
@@ -345,6 +357,7 @@ function applyQuality(next: Quality) {
   for(const encounter of battles.values()) {
     if(encounter instanceof SabotBattle) encounter.attacksRuntime.setQuality(quality)
     if(encounter instanceof WandaBattle || encounter instanceof KouperBattle) encounter.visuals.quality=quality
+    if(encounter instanceof DuoBattle) encounter.setQuality(quality)
   }
   resize()
 }
@@ -368,7 +381,7 @@ function frame(now: number) {
     }
     if(battle.outcome) audio.pauseMusic()
     if(battle.outcome==='victory' && huntStarted!==undefined) {
-      const boss=battle.monster.data.id
+      const boss=battle.questData.id
       const time=Math.max(1,Math.round(performance.now()-huntStarted))
       clearResult={time,previousBest:bestClearTime(boss,selectedHunter)}
       recordClearTime(boss,selectedHunter,time)
@@ -388,11 +401,14 @@ function frame(now: number) {
     battle.monster.animate('idle',dt)
     camera.update(dt,battle,0,0,false,titleTime+.01)
   }
-  if(battle instanceof KouperBattle) battle.frame(dt,screen===null && !battle.outcome)
+  if(battle instanceof KouperBattle || battle instanceof DuoBattle) battle.frame(dt,screen===null && !battle.outcome)
   const moving=screen===null||screen==='title'||screen==='help'&&helpFrom==='title'
   if (dirty||moving) {
     renderer.toneMappingExposure=1.17*(1-battle.fieldDarkness)
     hunterShadow.follow(battle.p,.64)
+    const partner=battle instanceof DuoBattle?battle.sceneModels[1]:undefined
+    partnerShadow.mesh.visible=!!partner && partner.root.visible
+    if(partner) partnerShadow.follow(partner.root.position,.72)
     bossShadow.follow(battle.m,battle instanceof ShikoukiBattle ? 1.18 : battle.bossState==='attack' && battle.callout==='跳躍プレス'?.46:.72)
     if (quality!=='low'||frameCount++%2===0||dirty) renderer.shadowMap.needsUpdate=true
     const runtime=battle instanceof SabotBattle?battle.attacksRuntime:undefined
@@ -431,7 +447,8 @@ async function init() {
     hunter=new HunterModel()
     battle=titleBattle=await loadBattle(tidebeast,arena)
     hunterShadow=new ContactShadow(.92,.64); bossShadow=new ContactShadow(1.95,.72)
-    scene.add(hunter.root,battle.monster.root,hunterShadow.mesh,bossShadow.mesh)
+    partnerShadow=new ContactShadow(1.95,.72); partnerShadow.mesh.visible=false
+    scene.add(hunter.root,battle.monster.root,hunterShadow.mesh,bossShadow.mesh,partnerShadow.mesh)
     camera.reset(battle)
     applyQuality(quality)
     document.addEventListener('visibilitychange',()=>{

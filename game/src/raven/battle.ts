@@ -57,6 +57,10 @@ export class RavenBattle extends Battle {
 
   override update(...args:Parameters<Battle['update']>) {
     super.update(...args)
+    this.afterOpponentStep()
+  }
+
+  protected override afterOpponentStep() {
     if(this.outcome && !this.terminated) {
       this.terminated=true
       this.current=undefined
@@ -85,11 +89,11 @@ export class RavenBattle extends Battle {
       return
     }
     const ratio=this.bossHp/this.monster.data.hp
-    if(ratio<=ultimateHp && this.elapsed>=this.ultimateReady) {
+    if(this.mayStartAttack && ratio<=ultimateHp && this.elapsed>=this.ultimateReady) {
       this.start('ultimate')
       return
     }
-    if(!this.rage && ratio<=this.monster.data.rage.hpRatio) {
+    if(this.mayStartAttack && !this.rage && ratio<=this.monster.data.rage.hpRatio) {
       this.rage=true
       this.setBoss('rage')
       this.callout='怒り · 邪眼が赤紫に染まった'
@@ -109,7 +113,7 @@ export class RavenBattle extends Battle {
     const yaw=yawTo(this.m,this.p)
     const angle=wrap(yaw-this.bossYaw)
     this.rearTime=Math.abs(angle)>Math.PI*.58 ? this.rearTime+dt : Math.max(0,this.rearTime-dt*.65)
-    const next=this.elapsed>=this.nextDecisionAt?this.chooseRavenAttack(distance,angle):undefined
+    const next=this.mayStartAttack && this.elapsed>=this.nextDecisionAt?this.chooseRavenAttack(distance,angle):undefined
     if(next) {
       this.start(next)
     } else if(Math.abs(angle)>turnTolerance) {

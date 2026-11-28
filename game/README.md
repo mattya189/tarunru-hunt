@@ -241,3 +241,11 @@ npm install --no-save --package-lock=false playwright
 npx playwright install chromium
 node tools/test-kouper.mjs
 ```
+
+## 呪紙と黒翼
+
+★4・古代神殿跡地で、コウパートイパー（HP 2,400）とテラキュラーレイヴン（HP 1,750）を同時に討伐する。各モンスターのHP・当たり判定・ロックオン先は独立し、片方を倒した後はもう片方との戦いが続く。大技の予備動作は同時に始まらず、場に残る呪紙と飛び道具は時間差で重なる。
+
+- 同時討伐の制御は `src/duo/battle.ts`、数値は `src/duo/config.ts`。
+- ランキングは `kouper-raven-duo` として単体戦と分ける。公開時に `supabase/migrations/20261128200000_kouper_raven_duo.sql` を適用する。
+- Viteの開発サーバーを起動し、PlaywrightのChromiumで `node tools/test-duo.mjs` を実行すると、HUD、ロックオン、両方の討伐順序などを検証できる。
