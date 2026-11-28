@@ -5,7 +5,7 @@ import type { BattleAudio } from './battle-audio'
 import { maxEnergy } from './flare/combat'
 import { clamp } from './math'
 import { bestClearTime } from './clear-times'
-import { difficulties, difficultyInfo, quests, questIcon, type Difficulty } from './quests'
+import { difficulties, difficultyInfo, quests, questIcons, type Difficulty } from './quests'
 import { listScores, monsterPlayerCounts, rankingTime, saveScore, type HunterId, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
@@ -39,6 +39,9 @@ export class Interface {
   private keyHint=select('key-hint')
   private bossName=select('boss-name')
   private bossHp=select('boss-hp')
+  private secondBoss=select('second-boss-status')
+  private secondBossName=select('second-boss-name')
+  private secondBossHp=select('second-boss-hp')
   private callout=select('callout')
   private rage=select('rage')
   private charge=select('charge-meter')
@@ -116,7 +119,12 @@ export class Interface {
       <div class="eyebrow">3D モンスター討伐</div><h1>メガネ<em>ハント</em></h1>
       <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}${button('layout','操作配置')}</div>
       <details class="menu-disclosure"><summary>画質・音量</summary>${settings}</details>`
-    const icon = (quest: (typeof quests)[number]) => `<img class="quest-icon" src="${questIcon(quest)}" alt="">`
+    const icon=(quest:(typeof quests)[number])=>{
+      const [first,second]=questIcons(quest)
+      return second
+        ? `<span class="quest-icon duo-quest-icon" aria-hidden="true"><img src="${first}" alt=""><img src="${second}" alt=""></span>`
+        : `<img class="quest-icon" src="${first}" alt="">`
+    }
     const selected=quests.find(quest=>quest.monster.id===this.data.id)!
     if (screen==='hunters') this.panel.innerHTML=`
       <h2>キャラクターを選ぶ</h2>
@@ -190,6 +198,7 @@ export class Interface {
         <div class="quest-heading" data-difficulty="${selected.difficulty}">${icon(selected)}<div><span class="quest-level">${difficultyInfo[selected.difficulty].name}</span><h2>${selected.name}</h2></div></div>
         <dl class="quest-facts">
           <div><dt>狩場</dt><dd>${fieldFor(selected.monster.fieldId).name}</dd></div>
+          ${selected.targets?`<div><dt>討伐対象</dt><dd>${selected.targets.join('・')}</dd></div>`: ''}
           <div><dt>武器</dt><dd>${hunterLabels[hunter]}</dd></div>
           <div><dt>自己ベスト</dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>
         </dl>
@@ -371,6 +380,13 @@ export class Interface {
       this.skillButton.setAttribute('aria-disabled',String(cooldown>0 || !!b.outcome))
     }
     this.gauge(this.bossHp,b.bossHp,b.monster.data.hp)
+    const second=b.secondaryBossHealth
+    this.secondBoss.hidden=!second
+    this.hud.classList.toggle('duo-hud',!!second)
+    if(second) {
+      this.write(this.secondBossName,second.name)
+      this.gauge(this.secondBossHp,second.hp,second.max)
+    }
     const notice=b.callout || (lock?'ロックオン中':'')
     const reverse=b.reverseMovement>0 ? `移動反転 ${Math.ceil(b.reverseMovement)}秒` : ''
     this.write(this.callout,[reverse,b.statusNotice,notice].filter(Boolean).join(' · '))

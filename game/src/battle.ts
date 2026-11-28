@@ -84,6 +84,8 @@ export class Battle {
   private skillTargets = new Set<object>()
   private magicOrigin = new Vector3()
   private magicAim = new Vector3()
+  private playerHost?: Battle
+  protected mayStartAttack = true
 
   get skillCooldown() { return Math.max(0,this.skillReadyAt-this.elapsed) }
   get flare() { return this.flareModel ? this.magic : undefined }
@@ -131,7 +133,7 @@ export class Battle {
     if (this.outcome) {
       input.clearCombatBuffer()
       this.outcomeTime += dt
-      if (this.outcome === 'victory') this.monster.animate('defeat',dt,clamp(this.outcomeTime/this.defeatDuration,0,1))
+      if (this.outcome === 'victory') this.animateBossDefeat(dt)
       if(this.flareModel) {
         this.magic!.stop()
         this.flareModel.root.position.y=0
@@ -162,6 +164,54 @@ export class Battle {
     }
   }
 
+  // Paired hunts share one player controller. Each opponent keeps its own attack clock and HP.
+  stepAsOpponent(host:Battle,dt:number,mayStartAttack:boolean) {
+    this.playerHost=host
+    this.mayStartAttack=mayStartAttack
+    this.elapsed=host.elapsed
+    if(host.outcome==='failure' && !this.outcome) this.outcome='failure'
+    if(this.outcome==='victory') {
+      this.outcomeTime+=dt
+      this.animateBossDefeat(dt)
+    } else if(!this.outcome) {
+      this.bt+=dt
+      this.recentlyStaggered=Math.max(0,this.recentlyStaggered-dt)
+      this.playerState=host.playerState
+      this.playerYaw=host.playerYaw
+      this.stamina=host.stamina
+      this.roll.copy(host.roll)
+      this.updateBoss(dt)
+    }
+    this.afterOpponentStep()
+  }
+
+  notifyOpponentDodge(direction:Vector3) {
+    if(!this.outcome) {
+      if(this.playerHost) this.elapsed=this.playerHost.elapsed
+      this.onDodge(direction)
+    }
+  }
+
+  hitOpponent(part:MonsterModel['parts'][number], damage:number, magic:boolean, label?:string) {
+    if(this.outcome || !this.acceptBossDamage()) return 0
+    const dealt=magic
+      ? this.applyMonsterHit(part,this.magicBossDamage(damage)*this.magicPartBonus(part),label??'エネルギーショット',label?0xff9537:0xffb070,.40)
+      : this.applyMonsterHit(part,Math.round(damage*part.config.multiplier),label)
+    if(this.outcome) this.afterOpponentStep()
+    return dealt
+  }
+
+  protected afterOpponentStep() {}
+  protected animateBossDefeat(dt:number) {
+    this.monster.animate('defeat',dt,clamp(this.outcomeTime/this.defeatDuration,0,1))
+  }
+
+  get questData() { return this.monster.data }
+  get cameraMonster() { return this.monster }
+  get sceneModels():readonly MonsterModel[] { return [this.monster] }
+  get secondaryBossHealth(): {name:string; hp:number; max:number} | undefined { return undefined }
+  protected get usesPrimaryHurtbox() { return true }
+
   get lock() { return this.lockedMonster !== undefined }
   get selectedLockTarget() { return this.lockedMonster }
   get lockTarget() { return this.aimedMonster.root.position }
@@ -176,11 +226,12 @@ export class Battle {
   private get aimedMonster() { return this.lockedMonster ?? this.defaultLockTarget() }
   get rageLabel() { return '怒り' }
   get statusNotice() { return '' }
-  protected get playerStateTime() { return this.pt }
+  protected get playerStateTime() { return this.playerHost?.pt??this.pt }
   protected get dodgeDirection() { return this.roll }
-  protected get playerCollisionImmune() { return this.dodgeInvulnerable }
-  protected get staminaRecoveryDelay() { return this.staminaDelay }
-  protected get playerEvadeDelay() {
+  protected get playerCollisionImmune() { return this.playerHost?.dodgeInvulnerable??this.dodgeInvulnerable }
+  protected get staminaRecoveryDelay() { return this.playerHost?.staminaDelay??this.staminaDelay }
+  protected get playerEvadeDelay():number {
+    if(this.playerHost) return this.playerHost.playerEvadeDelay
     switch (this.playerState) {
       case 'swing': return Math.max(0,this.strike.windup+this.strike.active+(this.charged?0:.06)-this.pt)
       case 'cast': {
@@ -199,7 +250,7 @@ export class Battle {
   get field() { return this.arena }
   get defeatDuration() { return 1.65 }
   protected get bossGroundRadius() { return this.monster.data.radius }
-  protected get guarding() { return this.guard }
+  protected get guarding() { return this.playerHost?.guard??this.guard }
   protected get attackDamageMultiplier() { return this.monster.data.power*(this.rage?1.1:1) }
 
   private setPlayer(state: FighterState) { this.playerState=state; this.pt=0 }
@@ -436,7 +487,7 @@ export class Battle {
       return (horizontal**2+vertical**2)/radius**2
     }
     const damage=this.weapon.swings[0].damage*damageRatio
-    const best=this.skillTargets.has(this.monster) ? undefined : this.findStrike(this.monster,volume)
+    const best=!this.usesPrimaryHurtbox || this.skillTargets.has(this.monster) ? undefined : this.findStrike(this.monster,volume)
     const accepted=best && this.acceptBossDamage()
     if(best) this.skillTargets.add(this.monster)
     this.strikeSecondary(damage,volume,true,this.skillTargets)
@@ -452,9 +503,9 @@ export class Battle {
 
   private strikeWithMagic(volume:HitVolume,damage:number,spell?:string) {
     if(this.outcome) return -1
-    const best=this.findStrike(this.monster,volume)
+    const best=this.usesPrimaryHurtbox?this.findStrike(this.monster,volume):undefined
     const blocked=spell && best && !this.acceptBossDamage()
-    const secondary=this.strikeSecondary(damage,volume,!!spell)
+    const secondary=this.strikeSecondary(damage,volume,!!spell,undefined,spell)
     if(!spell && secondary) return secondary
     if(!best) return secondary || -1
     if(blocked || !spell && !this.acceptBossDamage()) return secondary
@@ -483,7 +534,7 @@ export class Battle {
     const s=this.strike
     if (this.outcome || this.playerState!=='swing' || this.struck || this.pt<s.windup || this.pt>s.windup+s.active) return
     if (this.strikeSecondary(s.damage*this.power)) { this.struck=true; return }
-    const best=this.findStrike(this.monster)
+    const best=this.usesPrimaryHurtbox?this.findStrike(this.monster):undefined
     if (!best) return
     this.struck=true
     const damage=Math.round(s.damage*this.power*best.config.multiplier)
@@ -522,7 +573,7 @@ export class Battle {
   protected preserveBossHealth(damage:number) { return damage }
   protected magicBossDamage(damage:number) { return damage }
   protected onBossHit(_magic:boolean,_damage:number) {}
-  protected strikeSecondary(_damage:number,_volume?:HitVolume,_area=false,_hitTargets?: Set<object>) { return 0 }
+  protected strikeSecondary(_damage:number,_volume?:HitVolume,_area=false,_hitTargets?: Set<object>,_spell?:string) { return 0 }
   protected acceptBossDamage() { return true }
 
   protected findStrike(monster:MonsterModel,volume?:HitVolume) {
@@ -743,7 +794,8 @@ export class Battle {
     multiplier = this.attackDamageMultiplier, damageScale = 1,
     guardEffect?: { damageScale: number; push: number } | 'dodge-only' | 'unguardable' | 'status-expiry',
     sourceLabel = '',
-  ) {
+  ):boolean {
+    if(this.playerHost) return !this.playerHost.outcome && this.playerHost.damagePlayer(a,source,multiplier,damageScale,guardEffect,sourceLabel)
     const dodgeOnly=guardEffect==='dodge-only'
     const statusExpiry=guardEffect==='status-expiry'
     const guardResponse=typeof guardEffect==='object'?guardEffect:undefined

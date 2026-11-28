@@ -106,11 +106,14 @@ input.ranking-field { width:min(220px,100%); user-select:text; -webkit-user-sele
 .gauge.stamina { height:7px; }
 .gauge.stamina i { background:linear-gradient(90deg,#d3a14d,#ffe17c); }
 .boss-status { display:flex; min-width:0; width:min(100%,245px); align-items:center; gap:7px; margin-top:2px; }
-#boss-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:62%; color:#fff1dc; font-size:.625rem; font-weight:700; line-height:1.2; text-shadow:0 1px 2px #162019,0 0 4px #162019; }
+#boss-name, #second-boss-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:62%; color:#fff1dc; font-size:.625rem; font-weight:700; line-height:1.2; text-shadow:0 1px 2px #162019,0 0 4px #162019; }
 .gauge.boss-health { flex:1; height:5px; }
 .gauge.boss-health i { background:linear-gradient(90deg,#b96b56,#ee9b77); }
 .battle-alerts { position:absolute; top:calc(var(--top) + 49px); left:50%; transform:translateX(-50%); width:min(390px,calc(100cqw - 2 * max(var(--left),var(--right)) - 108px)); display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:4px 8px; text-align:center; }
 #rage { color:#ffbd93; font-size:.72rem; font-weight:800; padding:2px 6px; background:#2c2218d9; border:1px solid #dfad7973; border-radius:3px; }
+.boss-status[hidden] { display:none; }
+#second-boss-hp i { background:linear-gradient(90deg,#9972b3,#e297cb); }
+.duo-hud .battle-alerts { top:calc(var(--top) + 64px); }
 #callout { color:#fff0d4; font-size:.77rem; font-weight:800; text-shadow:0 2px 4px #172019,0 0 7px #101a12; }
 #callout:empty { display:none; }
 #callout.warning { color:#ffe3a2; }
@@ -295,3 +298,8 @@ body[data-screen="layout"] .monster-reticle { pointer-events:none; }
   overflow-wrap: anywhere;
   pointer-events: none;
 }
+
+.duo-quest-icon { position:relative; aspect-ratio:1; }
+.duo-quest-icon img { position:absolute; width:68%; height:68%; object-fit:contain; }
+.duo-quest-icon img:first-child { top:0; left:0; }
+.duo-quest-icon img:last-child { bottom:0; right:0; }

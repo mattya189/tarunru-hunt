@@ -52,7 +52,7 @@ export class HuntCamera {
       return
     }
     const locked=battle.lock&&!victory
-    const focusMonster=(locked?battle.selectedLockTarget:undefined) ?? battle.monster
+    const focusMonster=(locked?battle.selectedLockTarget:undefined) ?? battle.cameraMonster
     const target=focusMonster.root.position
     const distanceToMonster=flatDistance(battle.p,target)
     if(victory) this.yaw=this.targetYaw=wrap(this.yaw-dt*.69)
@@ -67,7 +67,7 @@ export class HuntCamera {
       }
       this.yaw=wrap(this.yaw+wrap(this.targetYaw-this.yaw)*(snap?1:damp(19,dt)))
     }
-    this.target.copy(victory?battle.m:battle.p)
+    this.target.copy(victory?target:battle.p)
     const view=victory?'victory':portrait?'portrait':'landscape'
     this.target.y+=fieldCamera?.focusHeight[view] ?? (victory?1.42:portrait?1.91:1.58)
     const tracking=fieldCamera?.targetTracking
@@ -100,7 +100,7 @@ export class HuntCamera {
     this.aim.copy(camera.position).sub(this.normal)
     camera.lookAt(this.aim)
     camera.updateMatrixWorld()
-    this.subject.copy(victory?battle.m:battle.p).y+=1.06
+    this.subject.copy(victory?target:battle.p).y+=1.06
     this.secondSubject.copy(target).y+=focusMonster.data.scale*1.25
     this.screenPoint.copy(this.secondSubject).project(camera)
     const monsterInView=!victory && this.screenPoint.z>=-1 && this.screenPoint.z<=1 &&

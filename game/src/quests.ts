@@ -8,6 +8,7 @@ import { raven } from './raven/config'
 import { kouencho } from './kouencho/config'
 import { wanda } from './wanda/config'
 import { kouper } from './kouper/config'
+import { paperAndRaven } from './duo/config'
 
 export const difficultyInfo = {
   1: { name: '★1', description: '初級' },
@@ -24,6 +25,8 @@ interface HuntQuest {
   name: string
   difficulty: Difficulty
   icon: string
+  companionIcon?:string
+  targets?:readonly string[]
   species?: string
   englishName?: string
   attacks: string
@@ -116,6 +119,16 @@ export const quests: readonly HuntQuest[] = [
     ],
   },
   {
+    monster: paperAndRaven, name:paperAndRaven.name, difficulty:4, icon:'kouper-toiper', companionIcon:'terracular-raven',
+    targets:[kouper.name,raven.name],
+    attacks:'呪紙の時間差爆発、爆紙地獄、双眼焼却光線、黒羽散弾、千眼黒翼陣',
+    advice:[
+      '古代神殿跡地でコウパートイパーとテラキュラーレイヴンを両方討伐する。',
+      '2体の攻撃の予兆が切り替わる。呪紙を避けたあとも別方向からの光線に備えよう。',
+      '戦闘中は各モンスターのアイコンをタップして狙いを切り替えられる。',
+    ],
+  },
+  {
     monster: wanda, name: wanda.name, difficulty: 4, icon: 'wanda-butterfly-king',
     species: '天翼皇種 · 風／重力', englishName: 'Wanda Butterfly King',
     attacks: '天翼刃、皇刃十字斬、天空爆撃、重力吸引、三連天空波、天断光線、超高速降下斬撃、追跡暴風渦、必殺技「天空崩壊」「天皇終焉陣」',
@@ -141,8 +154,8 @@ function iconUrl(icon: string) {
   return import.meta.env.BASE_URL + 'icons/' + icon + '.webp'
 }
 
-export function questIcon(quest: HuntQuest) {
-  return iconUrl(quest.icon)
+export function questIcons(quest:HuntQuest) {
+  return quest.companionIcon ? [iconUrl(quest.icon),iconUrl(quest.companionIcon)] : [iconUrl(quest.icon)]
 }
 
 export function monsterIcon(monster: MonsterData) {
