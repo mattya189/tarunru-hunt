@@ -50,6 +50,7 @@ export const cues = {
 
 export const variant: MonsterData = {
   ...revotenshi, id: 'revotenshi-variant', name: 'レボテンシ亜種', fieldId: 'FIELD_002', hp: 1220,
+  scale: 1.20, radius: 1.16,
   rage: {...revotenshi.rage, hpRatio: .5},
   parts: [
     ...revotenshi.parts.map(part => ({...part, multiplier: 1})),
