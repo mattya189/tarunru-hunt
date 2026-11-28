@@ -66,6 +66,7 @@ export class Battle {
   private launch = new Vector3()
   private roll = new Vector3()
   private shove = new Vector3()
+  private windPushDistance = 0
   private bladeA = new Vector3()
   private bladeB = new Vector3()
   private previousA = new Vector3()
@@ -110,6 +111,7 @@ export class Battle {
     this.m.set(this.arena.data.monsterSpawn[0],0,this.arena.data.monsterSpawn[1]); this.arena.resolve(this.m,this.monster.data.radius)
     this.hp=this.weapon.hp; this.stamina=this.weapon.stamina; this.bossHp=this.monster.data.hp
     this.playerYaw=Math.PI; this.bossYaw=0; this.rage=false; this.elapsed=0; this.outcome=null; this.outcomeTime=0; this.lockedMonster=undefined
+    this.windPushDistance=0
     this.pt=this.bt=this.immune=this.staminaDelay=this.poise=this.legDamage=this.recentlyStaggered=0
     this.controls?.clearCombatBuffer(); this.dodgeBack=false
     this.chargeValue=this.attackCount=this.rageSequence=this.waveTime=this.milestone=0
@@ -307,7 +309,13 @@ export class Battle {
       pose=this.playerState
       const duration=pose==='hit'?.42:pose==='down'?.79:.49
       phase=clamp(this.pt/duration,0,1)
-      if (pose!=='rise' && this.pt<.24) this.moveEntity(this.p,this.shove,(pose==='down'?5:3)*dt,.44,this.m,this.bossGroundRadius)
+      if (pose==='hit' && this.windPushDistance>0) {
+        const travel=clamp(this.pt/.4,0,1)
+        const previous=clamp((this.pt-dt)/.4,0,1)
+        const ease=(t:number)=>1-(1-t)**2
+        this.moveEntity(this.p,this.shove,this.windPushDistance*(ease(travel)-ease(previous)),.44,this.m,this.bossGroundRadius)
+        if(travel===1) this.windPushDistance=0
+      } else if (pose!=='rise' && this.pt<.24) this.moveEntity(this.p,this.shove,(pose==='down'?5:3)*dt,.44,this.m,this.bossGroundRadius)
       if (phase>=1) this.setPlayer(pose==='down'?'rise':'free')
     }
     this.hunter.root.rotation.y=this.playerYaw
@@ -696,6 +704,20 @@ export class Battle {
   }
   protected onAttackFinished(_attack: Attack, _hit: boolean) {}
 
+  private get dodgeInvulnerable() {
+    return this.playerState==='dodge' && this.pt>=dodgeTiming.invincibleFrom &&
+      this.pt<dodgeTiming.invincibleFrom+dodgeTiming.invincibleFor
+  }
+
+  protected pushPlayerByWind(source:Vector3,distance:number) {
+    if(this.dodgeInvulnerable || this.playerState==='down' || this.playerState==='rise') return
+    this.controls?.clearCombatBuffer()
+    this.setPlayer('hit')
+    forward(yawTo(source,this.p),this.shove)
+    this.windPushDistance=distance
+    this.fx.sound('air-pressure',this.p)
+  }
+
   protected damagePlayer(
     a: Pick<Attack,'damage' | 'knockdown'>, source: Vector3,
     multiplier = this.attackDamageMultiplier, damageScale = 1,
@@ -703,9 +725,7 @@ export class Battle {
   ) {
     const dodgeOnly=guardEffect==='dodge-only'
     const guardResponse=typeof guardEffect==='object'?guardEffect:undefined
-    const dodging=this.playerState==='dodge' && this.pt>=dodgeTiming.invincibleFrom &&
-      this.pt<dodgeTiming.invincibleFrom+dodgeTiming.invincibleFor
-    if (dodging || !dodgeOnly && (this.immune>0 || this.playerState==='rise' || this.playerState==='down')) return false
+    if (this.dodgeInvulnerable || !dodgeOnly && (this.immune>0 || this.playerState==='rise' || this.playerState==='down')) return false
     const toward=yawTo(this.p,source)
     const guarded=guardEffect!=='dodge-only' && guardEffect!=='unguardable' && this.guard && Math.abs(wrap(toward-this.playerYaw))<=1.30 && this.useStamina(a.knockdown?23:15)
     const damage=guarded && guardResponse
@@ -715,6 +735,7 @@ export class Battle {
     this.immune=guarded?.28:a.knockdown?1.27:.56
     if(!guarded) {
       this.controls?.clearCombatBuffer()
+      this.windPushDistance=0
       this.setPlayer(a.knockdown?'down':'hit')
       forward(toward+Math.PI,this.shove)
     } else if (guardResponse?.push) {

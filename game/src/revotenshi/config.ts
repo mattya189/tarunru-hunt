@@ -60,5 +60,5 @@ export const variant: MonsterData = {
       radius: .82, multiplier: 1, stagger: 1,
     })),
   ],
-  motions: {...revotenshi.motions, leapPrep: {clip: 'leapPrep'}, sweepLeft: {clip: 'sweepLeft'}, sweepRight: {clip: 'sweepRight'}, tailPrep: {clip: 'tailPrep'}, clawPrep: {clip: 'clawPrep'}, fissurePrep: {clip: 'fissurePrep'}, sweepLeftHit: {clip: 'sweepLeftHit'}, sweepRightHit: {clip: 'sweepRightHit'}, leapHit: {clip: 'leapHit'}, tailHit: {clip: 'tailHit'}, clawHit: {clip: 'clawHit'}, fissureHit: {clip: 'fissureHit'}},
+  motions: {...revotenshi.motions, windPrep: {clip: 'windPrep'}, windHit: {clip: 'windHit'}, leapPrep: {clip: 'leapPrep'}, sweepLeft: {clip: 'sweepLeft'}, sweepRight: {clip: 'sweepRight'}, tailPrep: {clip: 'tailPrep'}, clawPrep: {clip: 'clawPrep'}, fissurePrep: {clip: 'fissurePrep'}, sweepLeftHit: {clip: 'sweepLeftHit'}, sweepRightHit: {clip: 'sweepRightHit'}, leapHit: {clip: 'leapHit'}, tailHit: {clip: 'tailHit'}, clawHit: {clip: 'clawHit'}, fissureHit: {clip: 'fissureHit'}},
 }

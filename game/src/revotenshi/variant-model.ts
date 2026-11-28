@@ -8,6 +8,7 @@ const poses: Record<string, Pose> = {
   leapPrep: [-.32,-.32,0,0,-.22,.12], tailPrep: [0,0,0,0,.12,1.05],
   clawPrep: [.9,.9,.95,.95,-.12,0], fissurePrep: [-.65,-.65,-.28,-.28,.16,0],
   sweepLeftHit: [-.65,0,1,0,.2,0], sweepRightHit: [0,-.65,0,1,.2,0],
+  windPrep: [.8,.8,-.55,-.55,-.15,.1], windHit: [-.18,-.18,1.05,1.05,.12,.1],
   leapHit: [-.56,-.56,0,0,.26,.25], tailHit: [0,0,0,0,-.14,-.55],
   clawHit: [-1.15,-1.15,.85,.85,.32,0], fissureHit: [-1.28,-1.28,-.25,-.25,.42,.14],
 }
@@ -30,7 +31,7 @@ export function prepareVariant(asset: Group, clips: AnimationClip[]) {
         const e = [new Euler(0,p[2],-p[0]),new Euler(0,-p[3],p[1]),new Euler(p[4],0,0),new Euler(p[5],0,0)][i]
         return new Quaternion().setFromEuler(e).toArray()
       }
-      return new QuaternionKeyframeTrack(bone+'.quaternion',[0,1],[...rotation(neutral),...rotation(pose)])
+      return new QuaternionKeyframeTrack(bone+'.quaternion',[0,1],[...rotation(name==='fissureHit'?poses.fissurePrep:name==='windHit'?poses.windPrep:neutral),...rotation(pose)])
     })
     clips.push(new AnimationClip(name,1,tracks))
   }
