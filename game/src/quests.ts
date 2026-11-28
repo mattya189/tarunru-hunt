@@ -65,7 +65,7 @@ export const quests: readonly HuntQuest[] = [
     ],
   },
   {
-    monster: variant, name: variant.name, difficulty: 2, icon: 'revotenshi',
+    monster: variant, name: variant.name, difficulty: 2, icon: 'revotenshi-variant',
     attacks: '片翼なぎ払い、跳び踏み、尾の打ち下ろし、両翼突き刺し、翼風圧、双翼地裂',
     advice: ['両翼を上げたら斜め横へ。刺さった翼爪を狙おう。','翼風圧は範囲外へ。双翼地裂は波が届く瞬間に回避し、頭を狙おう。'],
   },
