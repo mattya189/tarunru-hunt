@@ -10,6 +10,7 @@ import { MonsterModel } from './monster-model'
 import { clamp, flatDistance, forward, pointSegmentSquared, smooth, wrap, yawTo } from './math'
 
 type FighterState = 'free' | 'cast' | 'swing' | 'charge' | 'dodge' | 'hit' | 'down' | 'rise'
+const dodgeTiming = { duration: .59, invincibleFrom: .016, invincibleFor: .275 }
 export type BossState = 'idle' | 'search' | 'approach' | 'turn' | 'windup' | 'attack' | 'recovery' | 'hit' | 'stagger' | 'fall' | 'rage' | 'defeat'
 
 export class Battle {
@@ -31,13 +32,13 @@ export class Battle {
   playerState: FighterState = 'free'
   bossState: BossState = 'idle'
   private pt = 0
-  private dodgeBuffer = 0
+  private controls?: Controls
+  private dodgeBack = false
   protected bt = 0
   private immune = 0
   private staminaDelay = 0
   private guard = false
   private combo = 0
-  private queued = false
   private charged = false
   private power = 1
   private struck = false
@@ -100,10 +101,10 @@ export class Battle {
     this.hp=this.weapon.hp; this.stamina=this.weapon.stamina; this.bossHp=this.monster.data.hp
     this.playerYaw=Math.PI; this.bossYaw=0; this.rage=false; this.elapsed=0; this.outcome=null; this.outcomeTime=0; this.lockedMonster=undefined
     this.pt=this.bt=this.immune=this.staminaDelay=this.poise=this.legDamage=this.recentlyStaggered=0
-    this.dodgeBuffer=0
+    this.controls?.clearCombatBuffer(); this.dodgeBack=false
     this.chargeValue=this.attackCount=this.rageSequence=this.waveTime=this.milestone=0
     this.lastAttack=undefined; this.attack=undefined
-    this.queued=this.charged=this.struck=this.attackLocked=this.attackHit=this.guard=false
+    this.charged=this.struck=this.attackLocked=this.attackHit=this.guard=false
     this.callout=''; this.reverseMovement=0; this.cooldowns={swipe:0,rush:1,spin:2,leap:3,special:6}
     this.magic?.reset(); this.flareModel?.reset()
     this.fx.clear(); this.setPlayer('free'); this.setBoss('idle')
@@ -111,7 +112,9 @@ export class Battle {
     this.monster.root.rotation.y=this.bossYaw; this.monster.setEnraged(false); this.monster.animate('idle',0)
   }
   update(dt: number, input: Controls, viewYaw: number) {
+    this.controls=input
     if (this.outcome) {
+      input.clearCombatBuffer()
       this.outcomeTime += dt
       if (this.outcome === 'victory') this.monster.animate('defeat',dt,clamp(this.outcomeTime/this.defeatDuration,0,1))
       if(this.flareModel) {
@@ -179,7 +182,9 @@ export class Battle {
     input.movement(this.move)
     if(this.reverseMovement>0) { this.move.x*=-1; this.move.y*=-1 }
     const magic=this.flare
-    const attack=input.take('attack'), dodge=input.take('dodge'), charge=input.take('charge'), release=input.wasReleased('charge')
+    const chargeCancelled=input.takeChargeCancel()
+    const releasedCharge=input.takeChargeRelease() && this.playerState==='charge' && !chargeCancelled
+    if (chargeCancelled && this.playerState==='charge') this.setPlayer('free')
     const magnitude=Math.hypot(this.move.x,this.move.y)
     const dir=this.direction.set(-Math.cos(viewYaw)*this.move.x-Math.sin(viewYaw)*this.move.y,0,Math.sin(viewYaw)*this.move.x-Math.cos(viewYaw)*this.move.y)
     const target=this.lockTarget
@@ -188,15 +193,12 @@ export class Battle {
     const wasGuarding=this.guard
     this.guard=false
     this.chargeValue=0
-    this.dodgeBuffer=Math.max(0,this.dodgeBuffer-dt)
-    if (dodge && (this.playerState==='free' || this.playerState==='charge' || this.playerState==='swing')) {
-      this.dodgeBuffer=.19
-    }
-    const cancel = this.playerState==='free' || this.playerState==='charge' ||
-      (this.playerState==='swing' && this.pt > this.strike.windup+this.strike.active+.06)
-    if (cancel && this.dodgeBuffer>0) {
-      this.dodgeBuffer=0
-      if (this.useStamina(20)) this.startDodge(dir,magnitude)
+    const canDodge = this.playerState==='free' || this.playerState==='charge' ||
+      (this.playerState==='swing' && this.pt > this.strike.windup+this.strike.active+(this.charged?0:.06)) ||
+      (this.playerState==='cast' && magic?.canDodge(this.pt))
+    if (canDodge && input.take('dodge') && this.useStamina(20)) {
+      input.clearCombatBuffer()
+      this.startDodge(dir,magnitude)
     }
     if (this.playerState==='free') {
       this.guard=input.held('guard') && this.stamina >= 5
@@ -205,9 +207,11 @@ export class Battle {
         const aim=this.lock ? angle : Math.atan2(dir.x,dir.z)
         this.playerYaw += wrap(aim-this.playerYaw)*Math.min(1,dt*16)
       }
-      const shot = attack || !!magic && input.held('attack')
+      const shot = input.has('attack') || !!magic && input.held('attack')
+      const charge = input.has('charge')
       const aimed = this.lock || Math.abs(wrap(angle-this.playerYaw))<.60
       if (!this.guard && magic?.begin(shot,charge,this.elapsed,aimed)) {
+        input.clearCombatBuffer()
         if(aimed) this.playerYaw=angle
         this.setPlayer('cast')
         if(magic.cast?.spell) {
@@ -215,8 +219,11 @@ export class Battle {
           this.fx.sound('magic-charge',this.p)
           this.fx.ring(this.p,radius,radius,release,color,.47)
         }
-      } else if (!this.guard && !magic && attack && this.useStamina(5)) this.beginSwing(0,false)
-      else if (!this.guard && !magic && charge && this.useStamina(12)) {
+      } else if (!this.guard && !magic && shot && this.useStamina(5)) {
+        input.clearCombatBuffer()
+        this.beginSwing(0,false)
+      } else if (!this.guard && !magic && charge && this.useStamina(12)) {
+        input.clearCombatBuffer()
         this.setPlayer('charge')
         this.fx.sound('sword-charge',this.p)
       } else {
@@ -229,7 +236,7 @@ export class Battle {
       this.playerYaw += wrap(angle-this.playerYaw)*dt*(this.lock?10:2.5)
       this.moveEntity(this.p,dir,dt*1.1,.44,this.m,this.bossGroundRadius)
       pose='charge'
-      if (release || (!input.held('charge') && !charge) || this.pt>=1.92) {
+      if (releasedCharge || !input.held('charge') || this.pt>=1.92) {
         this.power=this.pt>=1.12?2.12:this.pt>=.52?1.60:1
         this.beginSwing(3,true)
       }
@@ -241,18 +248,19 @@ export class Battle {
         this.fx.sound(this.charged || this.combo===2 ? 'sword-heavy' : 'sword-light',this.p)
       }
       phase=this.pt<s.windup ? this.pt/s.windup : this.pt<s.windup+s.active ? 1+(this.pt-s.windup)/s.active : 2+clamp((this.pt-s.windup-s.active)/s.recovery,0,1)
-      if (attack && this.pt > .03 && this.combo < 2 && !this.charged) this.queued=true
       if (phase<1 && (this.lock || (flatDistance(this.p,target)<4.0 && Math.abs(wrap(angle-this.playerYaw))<1.1))) {
         this.playerYaw += wrap(angle-this.playerYaw)*Math.min(1,10*dt)
       }
       if (phase>.72 && phase<1.67) this.moveEntity(this.p,forward(this.playerYaw,this.delta),s.lunge*dt,.44,this.m,this.bossGroundRadius)
       if (this.pt>=duration) {
-        if (this.queued && this.useStamina(5)) { this.beginSwing(this.combo+1,false); phase=0 }
-        else { this.setPlayer('free'); pose='idle'; phase=0 }
+        if (this.combo<2 && !this.charged && input.has('attack') && this.useStamina(5)) {
+          input.clearCombatBuffer()
+          this.beginSwing(this.combo+1,false); phase=0
+        } else { this.setPlayer('free'); pose='idle'; phase=0 }
       }
     }
     if (this.playerState==='dodge') {
-      pose='dodge'; phase=clamp(this.pt/.59,0,1)
+      pose='dodge'; phase=clamp(this.pt/dodgeTiming.duration,0,1)
       this.moveEntity(this.p,this.roll,this.weapon.roll*(1-.66*phase)*dt,.44,this.m,this.bossGroundRadius)
       if (phase>=1) { this.setPlayer('free'); pose='idle' }
     }
@@ -288,13 +296,14 @@ export class Battle {
       } else {
         magic.cast=undefined
         const clip = { idle:'Idle',run:'Run',guard:'Guard',dodge:'Dodge',hit:'Hit',down:'Hit',rise:'Idle',swing:'Idle',charge:'Idle' }[pose]
-        if (this.flareModel!.pose(clip,dt,pose==='dodge'?phase*.65:undefined) && magnitude > .18) {
+        const time=pose==='dodge'?(this.dodgeBack?1-phase:phase)*.65:undefined
+        if (this.flareModel!.pose(clip,dt,time) && magnitude > .18) {
           this.fx.sound('footstep',this.p,.75+.25*magnitude)
         }
       }
       return
     }
-    if (this.hunter.pose(pose,phase,dt,this.combo,magnitude)) this.fx.sound('footstep',this.p,.75+.25*magnitude)
+    if (this.hunter.pose(pose,phase,dt,this.combo,magnitude,this.dodgeBack)) this.fx.sound('footstep',this.p,.75+.25*magnitude)
     this.previousA.copy(this.bladeA); this.previousB.copy(this.bladeB)
     this.hunter.blade(this.bladeA,this.bladeB)
     if (pose==='swing' && phase>.98 && phase<1.99) this.fx.blade(this.bladeA,this.bladeB,this.charged && this.power>1)
@@ -319,16 +328,19 @@ export class Battle {
   private startDodge(direction: Vector3, magnitude: number) {
     this.setPlayer('dodge')
     this.fx.sound('dodge',this.p)
-    if (magnitude>.13) this.roll.copy(direction).normalize()
-    else forward(this.playerYaw,this.roll)
-    this.playerYaw=Math.atan2(this.roll.x,this.roll.z)
+    this.dodgeBack=magnitude<=.13
+    if (this.dodgeBack) forward(this.playerYaw,this.roll).negate()
+    else {
+      this.roll.copy(direction).normalize()
+      this.playerYaw=Math.atan2(this.roll.x,this.roll.z)
+    }
     this.onDodge(this.roll)
   }
   protected onDodge(_direction: Vector3) {}
   private beginSwing(combo: number, charged: boolean) {
     this.combo=combo; this.charged=charged; this.strike=charged?this.weapon.charge:this.weapon.swings[combo]
     if (!charged) this.power=1
-    this.queued=this.struck=false
+    this.struck=false
     this.setPlayer('swing')
   }
   private strikeMonster() {
@@ -355,6 +367,7 @@ export class Battle {
       staggerScale < 1 ? 'magic-hit' : this.monster.data.metallic ? 'hit-armor' : 'hit-flesh')
     this.onBossHit(staggerScale<1,dealt)
     if (this.bossHp===0) {
+      this.controls?.clearCombatBuffer()
       this.setBoss('defeat'); this.outcome='victory'; this.callout='討伐完了'; return dealt
     }
     if (!this.canInterruptBoss() || this.bossState==='fall' || this.bossState==='stagger' || this.bossState==='rage') return dealt
@@ -582,7 +595,8 @@ export class Battle {
   ) {
     const dodgeOnly=guardEffect==='dodge-only'
     const guardResponse=typeof guardEffect==='object'?guardEffect:undefined
-    const dodging=this.playerState==='dodge' && this.pt>=.065 && this.pt<=.34
+    const dodging=this.playerState==='dodge' && this.pt>=dodgeTiming.invincibleFrom &&
+      this.pt<dodgeTiming.invincibleFrom+dodgeTiming.invincibleFor
     if (dodging || !dodgeOnly && (this.immune>0 || this.playerState==='rise' || this.playerState==='down')) return false
     const toward=yawTo(this.p,source)
     const guarded=guardEffect!=='dodge-only' && guardEffect!=='unguardable' && this.guard && Math.abs(wrap(toward-this.playerYaw))<=1.30 && this.useStamina(a.knockdown?23:15)
@@ -592,7 +606,7 @@ export class Battle {
     this.hp=Math.max(0,this.hp-damage)
     this.immune=guarded?.28:a.knockdown?1.27:.56
     if(!guarded) {
-      this.dodgeBuffer=0
+      this.controls?.clearCombatBuffer()
       this.setPlayer(a.knockdown?'down':'hit')
       forward(toward+Math.PI,this.shove)
     } else if (guardResponse?.push) {

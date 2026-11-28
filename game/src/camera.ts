@@ -9,6 +9,9 @@ export class HuntCamera {
   readonly camera = new PerspectiveCamera(51,1,.10,145)
   yaw = Math.PI
   readonly pitch = chasePitch
+  private targetYaw = Math.PI
+  private manualLookHold = 0
+  private pitchLift = 0
   private focus = new Vector3()
   private target = new Vector3()
   private anchor = new Vector3()
@@ -29,11 +32,11 @@ export class HuntCamera {
     this.camera.updateProjectionMatrix()
   }
   reset(battle: Battle) {
-    this.yaw = Math.PI
+    this.yaw = this.targetYaw = Math.PI
+    this.manualLookHold = 0
     this.update(1,battle,0,0,true)
   }
   update(dt: number, battle: Battle, lookX: number, shake: number, snap = false, showcase = 0) {
-    this.yaw=wrap(this.yaw-lookX*.007)
     const camera=this.camera, portrait=camera.aspect<1
     const fieldCamera=this.arena.data.camera
     const victory=battle.outcome==='victory'
@@ -49,9 +52,21 @@ export class HuntCamera {
       return
     }
     const locked=battle.lock&&!victory
-    const target=locked?battle.lockTarget:battle.m
+    const focusMonster=(locked?battle.selectedLockTarget:undefined) ?? battle.monster
+    const target=focusMonster.root.position
     const distanceToMonster=flatDistance(battle.p,target)
-    if(locked) this.yaw=wrap(this.yaw+wrap(yawTo(battle.p,target)-this.yaw)*damp(5.8,dt))
+    if(victory) this.yaw=this.targetYaw=wrap(this.yaw-dt*.69)
+    else {
+      this.manualLookHold=Math.max(0,this.manualLookHold-dt)
+      if(lookX) {
+        this.targetYaw=wrap(this.targetYaw-lookX*.007)
+        this.manualLookHold=.85
+      }
+      if(locked && !this.manualLookHold && distanceToMonster>.5) {
+        this.targetYaw=wrap(this.targetYaw+wrap(yawTo(battle.p,target)-this.targetYaw)*damp(5.8,dt))
+      }
+      this.yaw=wrap(this.yaw+wrap(this.targetYaw-this.yaw)*(snap?1:damp(19,dt)))
+    }
     this.target.copy(victory?battle.m:battle.p)
     const view=victory?'victory':portrait?'portrait':'landscape'
     this.target.y+=fieldCamera?.focusHeight[view] ?? (victory?1.42:portrait?1.91:1.58)
@@ -61,13 +76,14 @@ export class HuntCamera {
       this.target.x+=(target.x-battle.p.x)*room
       this.target.z+=(target.z-battle.p.z)*room
     }
-    if(victory) this.yaw-=dt*.69
     if(locked) this.target.addScaledVector(forward(this.yaw,this.normal),Math.min(.65,distanceToMonster*.055))
     this.focus.lerp(this.target,snap?1:damp(victory?3.5:14,dt))
     const closeRoom=victory?0:clamp((4.8-distanceToMonster)/3.2,0,1)
     const baseDistance=fieldCamera?.distance[view] ?? (victory?7.6:portrait?8.65:7.45)
     const spacing=baseDistance+closeRoom*(fieldCamera ? fieldCamera.closeDistance ?? 0 : .95)
-    const pitch=fieldCamera?.pitch ?? this.pitch
+    const closeLift=closeRoom*clamp((focusMonster.data.radius-.75)/.40,0,1)*.16
+    this.pitchLift+=(closeLift-this.pitchLift)*(snap?1:damp(6,dt))
+    const pitch=(fieldCamera?.pitch ?? this.pitch)+(victory?0:this.pitchLift)
     const side=victory||portrait?0:.58
     forward(this.yaw,this.normal)
     this.anchor.copy(this.focus)
@@ -85,7 +101,7 @@ export class HuntCamera {
     camera.lookAt(this.aim)
     camera.updateMatrixWorld()
     this.subject.copy(victory?battle.m:battle.p).y+=1.06
-    this.secondSubject.copy(target).y+=battle.monster.data.scale*1.25
+    this.secondSubject.copy(target).y+=focusMonster.data.scale*1.25
     this.screenPoint.copy(this.secondSubject).project(camera)
     const monsterInView=!victory && this.screenPoint.z>=-1 && this.screenPoint.z<=1 &&
       Math.abs(this.screenPoint.x)<1.1 && Math.abs(this.screenPoint.y)<1.1

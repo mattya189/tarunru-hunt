@@ -106,7 +106,7 @@ export class HunterModel {
 
   showSword(visible:boolean) { this.posture.visible=visible }
 
-  pose(state: HunterPose, p: number, dt: number, combo: number, moving: number) {
+  pose(state: HunterPose, p: number, dt: number, combo: number, moving: number, dodgeBack = false) {
     const lastStep=Math.floor((this.stride + Math.PI*.5) / Math.PI)
     this.stride += dt * 11.3
     const run = state === 'run' ? moving : 0
@@ -151,7 +151,7 @@ export class HunterModel {
     if (state === 'guard') { wx=.10; wy=1.27; wz=.55; pitch=.12; bank=-1.02; this.torso.rotation.x=.20 }
     if (state === 'dodge') {
       const bend = Math.sin(p*Math.PI)
-      this.posture.rotation.x = (p > .04 ? p*2*Math.PI : 0)
+      this.posture.rotation.x = (p > .04 ? p*2*Math.PI : 0) * (dodgeBack ? -1 : 1)
       this.posture.position.y += 1.02*(1-Math.cos(this.posture.rotation.x)) + .05*bend
       this.thighs[0].rotation.x = this.thighs[1].rotation.x = -1.1*bend
       this.shins[0].rotation.x = this.shins[1].rotation.x = 1.45*bend

@@ -2,13 +2,17 @@ const actions = ['attack','charge','dodge','guard','lock','pause'] as const
 export type Action = (typeof actions)[number]
 const mapping: Record<string, Action> = { KeyJ: 'attack', KeyK: 'charge', Space: 'dodge', KeyL: 'guard', KeyQ: 'lock', Escape: 'pause', KeyP: 'pause' }
 const movement = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'])
+const combatBufferMs = 200
+
 export class Controls {
   enabled = false
   coarse = matchMedia('(any-pointer: coarse)').matches || navigator.maxTouchPoints > 0
   private keys = new Set<string>()
   private pointers = new Map<number, Action>()
   private pressed = new Set<Action>()
-  private released = new Set<Action>()
+  private buffered = new Map<Action, number>()
+  private chargeCancelled = false
+  private chargeReleased = false
   private stickId: number | null = null
   private lookId: number | null = null
   private stickX = 0
@@ -30,11 +34,11 @@ export class Controls {
       if (!this.enabled || !(mapping[e.code] || movement.has(e.code))) return
       e.preventDefault()
       const action = mapping[e.code]
-      if (action && !e.repeat) this.pressed.add(action)
+      if (action && !e.repeat) this.press(action)
       this.keys.add(e.code)
     })
     addEventListener('keyup', e => {
-      if (this.keys.delete(e.code) && mapping[e.code] && !this.held(mapping[e.code])) this.released.add(mapping[e.code])
+      if (this.keys.delete(e.code) && mapping[e.code]==='charge' && !this.held('charge')) this.chargeReleased=true
     })
     addEventListener('blur', () => {
       if (this.enabled) { this.clear(); this.pressed.add('pause') }
@@ -75,13 +79,21 @@ export class Controls {
         e.preventDefault()
         button.setPointerCapture(e.pointerId)
         this.pointers.set(e.pointerId,action)
-        this.pressed.add(action)
+        this.press(action)
         button.classList.add('held')
       }
       const release = (e: PointerEvent) => {
         if (this.pointers.get(e.pointerId) !== action) return
         this.pointers.delete(e.pointerId)
-        if (!this.held(action)) { this.released.add(action); button.classList.remove('held') }
+        if (this.held(action)) return
+        button.classList.remove('held')
+        if (e.type === 'pointerup') {
+          if (action === 'charge') this.chargeReleased = true
+        } else {
+          this.buffered.delete(action)
+          this.pressed.delete(action)
+          if (action === 'charge') this.chargeCancelled = true
+        }
       }
       button.onpointerup = button.onpointercancel = button.onlostpointercapture = release
     }
@@ -123,16 +135,46 @@ export class Controls {
     const size = Math.max(1,Math.hypot(x,y))
     out.x=x/size; out.y=y/size
   }
-  take(action: Action) { return this.pressed.delete(action) }
-  wasReleased(action: Action) { return this.released.delete(action) }
+  private press(action: Action) {
+    if (action==='attack' || action==='charge' || action==='dodge') {
+      this.buffered.set(action,performance.now()+combatBufferMs)
+    } else this.pressed.add(action)
+  }
+  has(action: Action) {
+    const deadline=this.buffered.get(action)
+    if (deadline===undefined) return this.pressed.has(action)
+    if (performance.now()<=deadline) return true
+    this.buffered.delete(action)
+    return false
+  }
+  take(action: Action) {
+    if (!this.has(action)) return false
+    this.buffered.delete(action)
+    this.pressed.delete(action)
+    return true
+  }
+  takeChargeCancel() {
+    const cancelled=this.chargeCancelled
+    this.chargeCancelled=false
+    return cancelled
+  }
+  takeChargeRelease() {
+    const released=this.chargeReleased
+    this.chargeReleased=false
+    return released
+  }
+  clearCombatBuffer() { this.buffered.clear() }
   held(action: Action) {
     for (const key of this.keys) if (mapping[key] === action) return true
     for (const value of this.pointers.values()) if (value === action) return true
     return false
   }
-  endFrame() { this.pressed.clear(); this.released.clear(); this.lookX=0 }
+  endFrame() { this.pressed.clear(); this.lookX=0 }
   clear() {
     this.endFrame()
+    this.clearCombatBuffer()
+    this.chargeCancelled=true
+    this.chargeReleased=false
     this.keys.clear(); this.pointers.clear()
     this.lookId = null
     this.resetStick()
