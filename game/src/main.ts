@@ -14,10 +14,10 @@ import { HunterModel } from './hunter'
 import { Controls } from './input'
 import { MonsterModel } from './monster-model'
 import { beginRun, finishRun, type HunterId, type RankingRun } from './rankings'
-import { recordClearTime } from './clear-times'
+import { bestClearTime, recordClearTime } from './clear-times'
 import { Reticles } from './reticles'
 import { quests, type Difficulty } from './quests'
-import { Interface, type Command, type Quality, type Screen } from './ui'
+import { Interface, type ClearResult, type Command, type Quality, type Screen } from './ui'
 import { Arena } from './world'
 import { sabotProfiles } from './sabottenanbon/config'
 import { AttackRuntime, effectData } from './sabottenanbon/attack-runtime'
@@ -59,6 +59,7 @@ let selectedMonster=tidebeast
 let selectedHunter:HunterId='greatsword'
 let flareModel:FlareModel|undefined
 let huntStarted: number | undefined
+let clearResult: ClearResult | undefined
 let startCuePending=false
 let renderer: WebGLRenderer
 let scene: Scene
@@ -98,8 +99,8 @@ function switchTo(next: Screen | null) {
   accumulator=0
   dirty=true
   reticles.clear()
-  if(battle) battle.monster.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='boss-rankings' && next!=='rankings'
-  ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty,next==='rankings' && rankingFrom==='title'?'greatsword':selectedHunter)
+  if(battle) battle.monster.root.visible=next!=='hunters' && next!=='difficulty' && next!=='monsters' && next!=='quest' && next!=='quest-guide' && next!=='boss-rankings' && next!=='rankings'
+  ui.show(next,quality,battle,undefined,rankingRun,rankingResult,difficulty,next==='rankings' && rankingFrom==='title'?'greatsword':selectedHunter,clearResult)
   if (next==='layout') {
     controlsLayout.open()
     showBattlePreview()
@@ -246,6 +247,7 @@ async function startHunt() {
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
     rankingRun=await beginRun(battle.monster.data.id,selectedHunter).catch(()=>undefined)
     rankingResult=undefined
+    clearResult=undefined
     huntStarted=performance.now()
     startCuePending=true
     switchTo(null)
@@ -272,6 +274,8 @@ function command(action: Command) {
     case 'hunters': switchTo('hunters'); break
     case 'difficulty': switchTo('difficulty'); break
     case 'monsters': switchTo('monsters'); break
+    case 'quest': if(screen==='quest-guide') switchTo('quest'); break
+    case 'quest-guide': if(screen==='quest') switchTo('quest-guide'); break
     case 'rankings':
     case 'boss-rankings':
       if(screen==='title' || screen==='quest' || screen==='victory') {
@@ -356,7 +360,10 @@ function frame(now: number) {
     }
     if(battle.outcome) audio.pauseMusic()
     if(battle.outcome==='victory' && huntStarted!==undefined) {
-      recordClearTime(battle.monster.data.id,selectedHunter,Math.max(1,Math.round(performance.now()-huntStarted)))
+      const boss=battle.monster.data.id
+      const time=Math.max(1,Math.round(performance.now()-huntStarted))
+      clearResult={time,previousBest:bestClearTime(boss,selectedHunter)}
+      recordClearTime(boss,selectedHunter,time)
       huntStarted=undefined
     }
     if(battle.outcome==='victory' && rankingRun && !rankingResult) {

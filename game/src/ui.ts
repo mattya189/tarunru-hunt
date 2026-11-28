@@ -9,9 +9,10 @@ import { difficulties, difficultyInfo, quests, questIcon, type Difficulty } from
 import { listScores, monsterPlayerCounts, rankingTime, saveScore, type HunterId, type RankingRun } from './rankings'
 
 const select = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-export type Screen = 'loading' | 'title' | 'hunters' | 'difficulty' | 'monsters' | 'quest' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings' | 'layout'
-export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'hunters' | 'difficulty' | 'monsters' | 'rankings' | 'boss-rankings' | 'ranking-back' | 'layout'
+export type Screen = 'loading' | 'title' | 'hunters' | 'difficulty' | 'monsters' | 'quest' | 'quest-guide' | 'paused' | 'help' | 'victory' | 'failure' | 'error' | 'rankings' | 'boss-rankings' | 'layout'
+export type Command = 'start' | 'resume' | 'title' | 'help' | 'back' | 'retry' | 'refresh' | 'hunters' | 'difficulty' | 'monsters' | 'quest' | 'quest-guide' | 'rankings' | 'boss-rankings' | 'ranking-back' | 'layout'
 export type Quality = 'low' | 'medium' | 'high'
+export type ClearResult = { time: number; previousBest?: number }
 const hunterLabels: Record<HunterId,string> = {greatsword:'大剣',flare:'魔法使い'}
 const playerCountFormat = new Intl.NumberFormat('ja-JP')
 const qualityLabels: Record<Quality,string> = {low:'低',medium:'中',high:'高'}
@@ -43,6 +44,7 @@ export class Interface {
   private charge=select('charge-meter')
   private banner=select('quest-banner')
   private current: Screen | null = null
+  private monsterPage=0
   private cache = new Map<HTMLElement,string>()
 
   constructor(private data: MonsterData, private weapon: WeaponData, private coarse: boolean, private send: (command: Command) => void, private onQuality: (quality: Quality) => void, private chooseDifficulty: (level:Difficulty) => void, private choose: (id:string) => void, private audio:BattleAudio, private chooseHunter:(id:string)=>void) {
@@ -76,7 +78,8 @@ export class Interface {
   selectMonster(data:MonsterData) {
     this.data=data
   }
-  show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string, run?:RankingRun, result?:Promise<number|null>, difficulty:Difficulty=1, hunter:HunterId='greatsword') {
+  show(screen: Screen | null, quality: Quality, battle?: Battle, error?: string, run?:RankingRun, result?:Promise<number|null>, difficulty:Difficulty=1, hunter:HunterId='greatsword', clear?:ClearResult) {
+    if(screen==='monsters' && this.current==='difficulty') this.monsterPage=0
     this.current=screen
     this.menu.hidden=!screen || screen==='layout'
     this.menu.dataset.screen=screen??''
@@ -111,8 +114,8 @@ export class Interface {
     if (screen==='loading') this.panel.innerHTML='<div class="eyebrow">MEGANE HUNT</div><h1>メガネハント</h1><p role="status">闘技場を読み込み中…</p><div class="loading-line"></div>'
     if (screen==='title') this.panel.innerHTML=`
       <div class="eyebrow">3D モンスター討伐</div><h1>メガネ<em>ハント</em></h1>
-      <p class="title-note">狩場に出てモンスターを討伐する。</p>
-      <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}${button('layout','操作配置')}</div>${settings}`
+      <div class="menu-actions">${button('hunters','狩りに出る',true)}${button('rankings','世界ランキング')}${button('help','操作方法')}${button('layout','操作配置')}</div>
+      <details class="menu-disclosure"><summary>画質・音量</summary>${settings}</details>`
     const icon = (quest: (typeof quests)[number]) => `<img class="quest-icon" src="${questIcon(quest)}" alt="">`
     const selected=quests.find(quest=>quest.monster.id===this.data.id)!
     if (screen==='hunters') this.panel.innerHTML=`
@@ -128,30 +131,41 @@ export class Interface {
         `<button class="secondary difficulty-button" data-difficulty="${level}"><strong>${difficultyInfo[level].name}</strong><span>${difficultyInfo[level].description}</span></button>`).join('')}</div>
       <div class="menu-actions">${button('hunters','戻る')}</div>`
     const count=(boss:string)=>`<span class="player-count" data-player-count="${boss}">集計中…</span>`
-    if (screen==='monsters') this.panel.innerHTML=`
-      <h2>${difficultyInfo[difficulty].name}のモンスター</h2>
-      <ul class="quest-list" data-difficulty="${difficulty}" aria-label="討伐対象">${quests.filter(quest=>quest.difficulty===difficulty).map(quest=>
-        `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<span class="quest-name"><strong>${quest.name}</strong>${count(quest.monster.id)}</span><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
-      <p class="player-count-note">挑戦者数は閲覧中のブラウザを除いて集計。</p>
-      <div class="menu-actions">${button('difficulty','戻る')}</div>`
+    if (screen==='monsters') {
+      this.panel.innerHTML=`
+        <h2>${difficultyInfo[difficulty].name}のモンスター</h2>
+        <ul class="quest-list" data-difficulty="${difficulty}" aria-label="討伐対象"></ul>
+        <div class="menu-actions">${button('difficulty','戻る')}</div>`
+      const candidates=quests.filter(quest=>quest.difficulty===difficulty)
+      const list=this.panel.querySelector('.quest-list')!
+      const counts=monsterPlayerCounts()
+      this.paginate(controls=>list.after(controls),candidates.length,6,this.monsterPage,(start,end,page)=>{
+        this.monsterPage=page
+        list.innerHTML=candidates.slice(start,end).map(quest=>
+          `<li><button class="secondary quest-row" data-monster="${quest.monster.id}">${icon(quest)}<span class="quest-name"><strong>${quest.name}</strong>${count(quest.monster.id)}</span></button></li>`).join('')
+        void this.showPlayerCounts(list.querySelectorAll<HTMLElement>('[data-player-count]'),counts)
+      })
+    }
     if (screen==='rankings' || screen==='boss-rankings') {
       const dedicated=screen==='boss-rankings'
       this.panel.innerHTML=`
-        <h2>クリアタイムランキング</h2>
-        ${dedicated?`<div class="ranking-monster">${icon(selected)}<strong>${selected.name}</strong></div>`:`
-          <label for="ranking-boss">討伐対象</label>
-          <select id="ranking-boss" class="ranking-field">${quests.map(quest=>
-            `<option value="${quest.monster.id}"${quest.monster.id===this.data.id?' selected':''}>${quest.name}</option>`).join('')}</select>`}
-        <p class="player-count-note">${count(selected.monster.id)} · このブラウザを除く</p>
+        <h2>世界ランキング</h2>
+        <div class="ranking-target">
+          ${dedicated?`<div class="ranking-monster">${icon(selected)}<strong>${selected.name}</strong></div>`:`
+            <select id="ranking-boss" class="ranking-field" aria-label="討伐対象">${quests.map(quest=>
+              `<option value="${quest.monster.id}"${quest.monster.id===this.data.id?' selected':''}>${quest.name}</option>`).join('')}</select>`}
+          <span class="player-count-note">${count(selected.monster.id)} · 自分を除く</span>
+        </div>
         <div class="ranking-hunters settings"><div role="group" aria-label="ランキングの部門">${(Object.keys(hunterLabels) as HunterId[]).map(id=>
           `<button type="button" data-ranking-hunter="${id}" aria-pressed="${id===hunter}">${hunterLabels[id]}</button>`).join('')}</div></div>
         <div id="ranking-list" aria-live="polite"></div>
-        <p class="ranking-note">ランキングのタイムには一時停止中の時間も含まれる。</p>
-        <div class="menu-actions">${button('ranking-back','戻る')}</div>`
+        <div class="ranking-footer">${button('ranking-back','戻る')}</div>
+        <small class="ranking-rule">一時停止中も計測</small>`
       const list=select('ranking-list')
+      const footer=this.panel.querySelector('.ranking-footer')!
       const boss=this.panel.querySelector<HTMLSelectElement>('#ranking-boss')
       let category=hunter
-      const refresh=()=>void this.refreshRankings(boss?.value??this.data.id,category,list)
+      const refresh=()=>void this.refreshRankings(boss?.value??this.data.id,category,list,footer)
       const playerCount=this.panel.querySelector<HTMLElement>('[data-player-count]')!
       const counts=monsterPlayerCounts()
       void this.showPlayerCounts([playerCount],counts)
@@ -173,18 +187,23 @@ export class Interface {
     if (screen==='quest') {
       const best=bestClearTime(this.data.id,hunter)
       this.panel.innerHTML=`
-        <div class="quest-heading" data-difficulty="${selected.difficulty}">${icon(selected)}<div><span class="quest-level">${difficultyInfo[selected.difficulty].name}</span><h2>${selected.name}</h2>${selected.englishName?`<small>${selected.englishName}</small>`:''}</div></div>
-        <p class="player-count-note">${count(this.data.id)} · このブラウザを除く</p>
+        <div class="quest-heading" data-difficulty="${selected.difficulty}">${icon(selected)}<div><span class="quest-level">${difficultyInfo[selected.difficulty].name}</span><h2>${selected.name}</h2></div></div>
         <dl class="quest-facts">
-          <div><dt>クリアタイム<span>この端末の自己ベスト · ${hunterLabels[hunter]}</span></dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>
-          ${selected.monster.fieldId?`<div><dt>狩場</dt><dd>${fieldFor(selected.monster.fieldId).name}</dd></div>`:''}
-          ${selected.species?`<div><dt>種族・属性</dt><dd>${selected.species}</dd></div>`:''}
-          <div><dt>主な攻撃</dt><dd>${selected.attacks}</dd></div>
+          <div><dt>狩場</dt><dd>${fieldFor(selected.monster.fieldId).name}</dd></div>
+          <div><dt>武器</dt><dd>${hunterLabels[hunter]}</dd></div>
+          <div><dt>自己ベスト</dt><dd>${best===undefined?'未クリア':rankingTime(best)}</dd></div>
         </dl>
-        <details class="quest-guide"><summary>詳しい攻略</summary><ul>${selected.advice.map(tip=>`<li>${tip}</li>`).join('')}</ul></details>
-        <div class="menu-actions quest-actions">${button('start','狩りを始める',true)}${button('monsters','戻る')}</div>
-        <div class="menu-actions quest-rankings">${button('boss-rankings','このモンスターのランキング')}${button('rankings','クリアタイムランキング')}</div>`
+        <div class="menu-actions compact-actions">${button('start','出撃',true)}${button('quest-guide','攻略')}${button('boss-rankings','ランキング')}${button('monsters','戻る')}</div>`
     }
+    if (screen==='quest-guide') this.panel.innerHTML=`
+      <h2>${selected.name}</h2>
+      ${selected.englishName?`<small>${selected.englishName}</small>`:''}
+      <dl class="quest-facts">
+        ${selected.species?`<div><dt>種族・属性</dt><dd>${selected.species}</dd></div>`:''}
+        <div><dt>主な攻撃</dt><dd>${selected.attacks}</dd></div>
+      </dl>
+      <ul class="quest-tips">${selected.advice.map(tip=>`<li>${tip}</li>`).join('')}</ul>
+      <div class="menu-actions">${button('quest','戻る')}</div>`
     if (screen==='paused') this.panel.innerHTML=`<div class="eyebrow">PAUSE</div><h2>一時停止</h2><dl><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl><div class="menu-actions">${button('resume','狩りに戻る',true)}${button('help','操作方法')}${button('retry','再挑戦')}${button('title','タイトルへ')}</div>${settings}`
     if (screen==='help') this.panel.innerHTML=`
       <div class="eyebrow">FIELD MANUAL</div><h2>狩りの操作</h2>
@@ -202,21 +221,49 @@ export class Interface {
       <p>斬撃の終わり際にもう一度入力すると、最大3段まで繋がる。移動入力なしで回避すると後ろへ下がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。スマホは縦・横どちらでも遊べる。タイトル画面の「操作配置」で向きごとにタッチ操作を調整できる。</p>
       <div class="menu-actions">${button('back','戻る',true)}</div>
       <p class="ranking-note"><a href="${import.meta.env.BASE_URL}licenses/ancient-temple.txt" target="_blank" rel="noopener">素材クレジット</a></p>`
-    if (screen==='victory' || screen==='failure') this.panel.innerHTML=`
-      <div class="eyebrow">${screen==='victory'?'QUEST CLEARED':'QUEST FAILED'}</div>
-      <h2>${screen==='victory'?'討伐成功':'討伐失敗'}</h2>
-      <dl><div><dt>対象</dt><dd>${this.data.name}</dd></div><div><dt>経過時間</dt><dd>${clock(battle?.elapsed??0)}</dd></div></dl>
-      ${screen==='victory'?'<div id="ranking-result"></div>':''}
-      <div class="menu-actions">${button('retry','再挑戦',true)}${button('title','タイトルへ')}${screen==='victory'?button('rankings','世界ランキング'):''}</div>`
+    if (screen==='victory' || screen==='failure') {
+      const victory=screen==='victory'
+      const difference=clear?.previousBest===undefined?undefined:clear.time-clear.previousBest
+      const record=difference===undefined?'初クリア':difference===0?'自己ベストと同タイム':
+        difference<0?`自己ベスト更新 · −${rankingTime(-difference)}`:`自己ベストとの差 +${rankingTime(difference)}`
+      this.panel.innerHTML=`
+        <h2>${victory?'討伐成功':'討伐失敗'}</h2>
+        <p class="result-target">${selected.name} · ${hunterLabels[hunter]}</p>
+        <p class="result-time" aria-label="${victory?'討伐タイム':'経過時間'}">${victory && clear?rankingTime(clear.time):clock(battle?.elapsed??0)}</p>
+        ${victory && clear?`<p class="result-record">${record}</p>`:''}
+        <div class="menu-actions compact-actions">${button('retry','再戦',true)}${button('monsters','選択へ')}${victory?button('boss-rankings','ランキング'):''}${button('title','タイトルへ')}</div>
+        ${victory?'<div id="ranking-result"></div>':''}`
+    }
     if (screen==='victory') void this.showRankingResult(select('ranking-result'),run,result)
     if (screen==='error') {
       this.panel.innerHTML=`<div class="eyebrow">読み込みエラー</div><h2>狩場を開けない</h2><p id="error-detail"></p><div class="menu-actions">${button('refresh','再読み込み',true)}</div>`
       select('error-detail').textContent=error??'読み込みに失敗した。'
     }
-    if (screen==='monsters' || screen==='quest') {
-      void this.showPlayerCounts(this.panel.querySelectorAll<HTMLElement>('[data-player-count]'),monsterPlayerCounts())
-    }
     this.panel.scrollTop=0
+  }
+
+  private paginate(placeControls:(controls:HTMLDivElement)=>void,total:number,size:number,page:number,render:(start:number,end:number,page:number)=>void) {
+    const pages=Math.ceil(total/size)
+    if(pages<=1) {
+      render(0,total,0)
+      return
+    }
+    const controls=document.createElement('div')
+    controls.className='page-controls'
+    controls.innerHTML='<button class="secondary" type="button">前へ</button><span aria-live="polite"></span><button class="secondary" type="button">次へ</button>'
+    placeControls(controls)
+    const [previous,next]=controls.querySelectorAll('button')
+    const indicator=controls.querySelector('span')!
+    const update=(requested:number)=>{
+      page=clamp(requested,0,pages-1)
+      render(page*size,Math.min((page+1)*size,total),page)
+      indicator.textContent=`${page+1} / ${pages}`
+      previous.disabled=page===0
+      next.disabled=page===pages-1
+    }
+    previous.addEventListener('click',()=>update(page-1))
+    next.addEventListener('click',()=>update(page+1))
+    update(page)
   }
 
   private async showPlayerCounts(labels:Iterable<HTMLElement>, request:ReturnType<typeof monsterPlayerCounts>) {
@@ -225,10 +272,11 @@ export class Interface {
     const counts=await request.catch(()=>undefined)
     for(const {label,boss} of entries) {
       if (!label.isConnected || label.dataset.playerCount!==boss) continue
-      label.textContent=counts ? `挑戦者 ${playerCountFormat.format(counts.get(boss)??0)}人` : '挑戦者数を取得できません'
+      label.textContent=counts ? `挑戦者 ${playerCountFormat.format(counts.get(boss)??0)}人` : '挑戦者数 未取得'
     }
   }
-  private async refreshRankings(selected:string, hunter:HunterId, list:HTMLElement) {
+  private async refreshRankings(selected:string, hunter:HunterId, list:HTMLElement, footer:Element) {
+    footer.querySelector('.page-controls')?.remove()
     const loading=document.createElement('p')
     loading.textContent='ランキングを読み込み中…'
     list.replaceChildren(loading)
@@ -242,23 +290,28 @@ export class Interface {
       const table=document.createElement('table')
       table.className='ranking-table'
       table.innerHTML='<thead><tr><th scope="col">順位</th><th scope="col">プレイヤー</th><th scope="col">討伐タイム</th></tr></thead>'
-      const body=table.createTBody()
-      for(const [index,score] of scores.entries()) {
-        const row=body.insertRow()
-        for(const value of [String(index+1),score.nickname,rankingTime(score.time_ms)]) row.insertCell().textContent=value
-      }
       list.replaceChildren(table)
+      const body=table.createTBody()
+      this.paginate(controls=>footer.append(controls),scores.length,4,0,(start,end)=>{
+        body.replaceChildren()
+        for(let index=start;index<end;index++) {
+          const score=scores[index]
+          const row=body.insertRow()
+          for(const value of [String(index+1),score.nickname,rankingTime(score.time_ms)]) row.insertCell().textContent=value
+        }
+      })
     } catch {
       if(!loading.isConnected) return
       loading.textContent='ランキングに接続できなかった。'
       const retry=document.createElement('button')
       retry.type='button'; retry.className='secondary'; retry.textContent='再読み込み'
-      retry.addEventListener('click',()=>void this.refreshRankings(selected,hunter,list))
+      retry.addEventListener('click',()=>void this.refreshRankings(selected,hunter,list,footer))
       list.append(retry)
     }
   }
   private async showRankingResult(container:HTMLElement,run?:RankingRun,result?:Promise<number|null>) {
-    container.innerHTML='<p class="ranking-note" role="status">ランキング用の討伐タイムを確認中…</p>'
+    container.innerHTML='<details class="menu-disclosure"><summary>ランキング記録の登録</summary><p class="ranking-note" role="status">登録できる記録を確認中…</p></details>'
+    const details=container.querySelector('details')!
     const status=container.querySelector('p')!
     const time=await result
     if(!container.isConnected) return
@@ -297,7 +350,7 @@ export class Interface {
         status.textContent='記録を登録できなかった。もう一度試して。'
       }
     })
-    container.append(form)
+    details.append(form)
   }
   status(b: Battle, lock: boolean) {
     if (this.current && this.current!=='paused' && this.current!=='layout') return
