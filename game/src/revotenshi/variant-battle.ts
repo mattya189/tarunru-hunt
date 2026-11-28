@@ -9,7 +9,7 @@ const moves = {
   leap: {label:'跳び踏み', tell:1, rest:1.2, damage:27},
   tail: {label:'尾の打ち下ろし', tell:.7, rest:.8, damage:20},
   claw: {label:'両翼突き刺し', tell:1.1, rest:1.8, damage:31},
-  fissure: {label:'双翼地裂 · 中央か背後へ', tell:1.5, rest:2.5, damage:39},
+  fissure: {label:'双翼地裂 · 中央か背後へ', tell:.85, rest:2.5, damage:39},
 } as const
 type Move = keyof typeof moves
 type Sector = {center:Vector3; yaw:number; radius:number; angle:number}
@@ -67,8 +67,8 @@ export class VariantBattle extends Battle {
       this.callout='怒り · 両翼を広げている'
     }
     if (this.bossState==='rage') {
-      this.monster.animate('enrage',dt,clamp(this.bt/.85,0,1))
-      if (this.bt>=.85) this.begin('fissure',angle)
+      this.monster.animate('enrage',dt,clamp(this.bt/.55,0,1))
+      if (this.bt>=.55) this.begin('fissure',angle)
       return
     }
     // Score only reachable attacks. A repeated move incurs a cost, but the
