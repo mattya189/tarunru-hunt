@@ -3,7 +3,7 @@ import { clamp, flatDistance, forward, pointSegmentSquared } from '../math'
 import type { Arena } from '../world'
 
 export const emberHop = {
-  distanceRatio:.7, moveDuration:.20, duration:.28, cooldown:8,
+  distanceRatio:1, moveDuration:.36, duration:.42, cooldown:8,
   delay:.60, radius:1.5, damageRatio:.3, color:0xff792c,
 } as const
 

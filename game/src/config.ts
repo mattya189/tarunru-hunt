@@ -78,8 +78,8 @@ export interface WeaponData {
   charge: WeaponStrike
 }
 export const advancingSlash = {
-  distanceRatio:.5, moveDuration:.18, windup:.16, activeUntil:.26,
-  dodgeAfter:.38, duration:.46, cooldown:5, damageRatio:1.2,
+  distanceRatio:1, moveDuration:.34, windup:.32, activeUntil:.42,
+  dodgeAfter:.48, duration:.55, cooldown:5, damageRatio:1.2,
   reach:2.86, halfAngle:Math.PI/3, // Horizontal blade reach of the first normal swing.
 } as const
 
