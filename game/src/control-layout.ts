@@ -1,7 +1,7 @@
 import { clamp } from './math'
 
 const labels = {
-  stick: '移動スティック', attack: '斬撃', charge: '溜め斬り',
+  stick: '移動スティック', attack: '斬撃', charge: '溜め斬り', skill: '踏み込み／残火',
   guard: 'ガード', dodge: '回避', lock: '照準', pause: '一時停止',
 }
 type Control = keyof typeof labels
@@ -175,7 +175,7 @@ export class ControlLayout {
   private baseSize(id: Control, width: number) {
     const base = clamp(width * .16, 49, 70)
     return { stick: clamp(width * .31, 102, 142), attack: base, guard: .93 * base,
-      dodge: 1.06 * base, charge: 1.19 * base, lock: 48, pause: 44 }[id]
+      dodge: 1.06 * base, skill: base, charge: 1.19 * base, lock: 48, pause: 44 }[id]
   }
 
   private placement(id: Control, {width: w, height: h, gameWidth, left}: Dimensions): Placement {
@@ -189,6 +189,7 @@ export class ControlLayout {
       guard: [w - 1.18 * base - radius, h - 1.10 * base - radius],
       dodge: [w - 1.38 * base - radius, h - radius],
       charge: [w - radius, h - radius],
+      skill: [w - 1.18 * base - radius, h - 2.24 * base - radius],
       lock: [w - radius, 52 + radius],
       pause: [w - radius, radius],
     }

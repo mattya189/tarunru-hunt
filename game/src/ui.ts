@@ -30,6 +30,9 @@ export class Interface {
   private flareStatus=select('flare-status')
   private energy=select('energy')
   private energyValue=select('energy-value')
+  private skillButton=document.querySelector<HTMLButtonElement>('[data-action="skill"]')!
+  private skillLabel=this.skillButton.firstChild!
+  private skillTimer=this.skillButton.querySelector('small')!
   private attackButton=document.querySelector<HTMLButtonElement>('[data-action="attack"]')!
   private specialButton=document.querySelector<HTMLButtonElement>('[data-action="charge"]')!
   private keyHint=select('key-hint')
@@ -84,12 +87,16 @@ export class Interface {
     this.touch.classList.toggle('keyboard-only',!this.coarse && screen!=='layout')
     const flare=!!battle?.flare && (!screen || screen==='paused')
     this.flareStatus.hidden=!flare
+    this.skillLabel.textContent=flare?'残火':'踏み込み'
+    this.skillButton.setAttribute('aria-label',flare?'残火跳び':'踏み込み斬り')
+    this.write(this.skillTimer,'')
+    this.skillButton.removeAttribute('aria-disabled')
     this.attackButton.textContent=flare?'魔弾':'斬撃'
     this.specialButton.innerHTML=flare?'フレア':'溜め斬り<small>長押し</small>'
     this.cache.delete(this.specialButton)
     this.specialButton.classList.toggle('flare-button',flare)
     this.specialButton.removeAttribute('aria-disabled')
-    this.keyHint.textContent=`WASD 移動　 J ${flare?'魔弾':'攻撃'}　 K ${flare?'フレア':'溜め'}　 Space 回避　 L ガード　 Q ロックオン`
+    this.keyHint.textContent=`WASD 移動　 J ${flare?'魔弾':'攻撃'}　 K ${flare?'フレア':'溜め'}　 E ${flare?'残火':'踏み込み'}　 Space 回避　 L ガード　 Q ロックオン`
     if (!screen || screen==='layout') return
     const button = (cmd: Command, name: string, primary=false) => `<button class="${primary?'primary':'secondary'}" data-cmd="${cmd}">${name}${primary?'<span aria-hidden="true">→</span>':''}</button>`
     const volume = (bus: 'bgm' | 'sfx', label: string) => {
@@ -187,6 +194,7 @@ export class Interface {
       <tr><th>攻撃</th><td>斬撃</td><td>J</td></tr>
       <tr><th>溜め攻撃</th><td>溜めを長押しして離す</td><td>K を長押しして離す</td></tr>
       <tr><th>フレア</th><td>魔弾・フレア</td><td>J で魔弾 / K でフレア</td></tr>
+      <tr><th>踏み込み斬り／残火跳び</th><td>踏み込み／残火</td><td>E</td></tr>
       <tr><th>回避</th><td>回避</td><td>Space</td></tr>
       <tr><th>ガード</th><td>ガードを長押し</td><td>L を長押し</td></tr>
       <tr><th>ロックオン</th><td>敵のアイコンをタップ、照準で解除</td><td>アイコンをクリック、Qで切替</td></tr>
@@ -303,6 +311,11 @@ export class Interface {
       this.write(this.energyValue,`${energy} / ${maxEnergy}`)
       this.write(this.specialButton,spell?.name??'フレア')
       this.specialButton.setAttribute('aria-disabled',String(!spell))
+    }
+    if(this.current!=='layout') {
+      const cooldown=Math.ceil(b.skillCooldown)
+      this.write(this.skillTimer,cooldown ? cooldown+'秒' : '')
+      this.skillButton.setAttribute('aria-disabled',String(cooldown>0 || !!b.outcome))
     }
     this.gauge(this.bossHp,b.bossHp,b.monster.data.hp)
     const notice=b.callout || (lock?'ロックオン中':'')

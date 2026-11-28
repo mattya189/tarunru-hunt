@@ -1,6 +1,6 @@
-const actions = ['attack','charge','dodge','guard','lock','pause'] as const
+const actions = ['attack','charge','skill','dodge','guard','lock','pause'] as const
 export type Action = (typeof actions)[number]
-const mapping: Record<string, Action> = { KeyJ: 'attack', KeyK: 'charge', Space: 'dodge', KeyL: 'guard', KeyQ: 'lock', Escape: 'pause', KeyP: 'pause' }
+const mapping: Record<string, Action> = { KeyJ: 'attack', KeyK: 'charge', KeyE: 'skill', Space: 'dodge', KeyL: 'guard', KeyQ: 'lock', Escape: 'pause', KeyP: 'pause' }
 const movement = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'])
 const combatBufferMs = 200
 

@@ -1,6 +1,11 @@
-import { Group, Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three'
+import { Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three'
 import { clamp, flatDistance, forward, pointSegmentSquared } from '../math'
 import type { Arena } from '../world'
+
+export const emberHop = {
+  distanceRatio:.7, moveDuration:.20, duration:.28, cooldown:8,
+  delay:.60, radius:1.5, damageRatio:.3, color:0xff792c,
+} as const
 
 export const maxEnergy = 300
 export const flareSpells = [
@@ -24,6 +29,8 @@ export class FlareCombat {
   energy = 0
   cast?: Cast
   private shot!: Mesh
+  private ember!: Mesh
+  private emberAt?: number
   private shotReady = 0
   private releasedAt?: number
   private start = new Vector3()
@@ -36,12 +43,16 @@ export class FlareCombat {
     if(this.shot) return
     this.shot=new Mesh(new SphereGeometry(.19,10,8),new MeshBasicMaterial({color:0xff823e,toneMapped:false}))
     this.shot.visible=false
-    root.add(this.shot)
+    this.ember=new Mesh(new RingGeometry(.86,1,40).rotateX(-Math.PI/2),
+      new MeshBasicMaterial({color:emberHop.color,depthWrite:false,toneMapped:false}))
+    this.ember.scale.setScalar(emberHop.radius)
+    this.ember.visible=false
+    root.add(this.shot,this.ember)
   }
 
   reset() {
     this.energy=0; this.cast=undefined; this.shotReady=0
-    if(this.shot) this.shot.visible=false
+    if(this.shot) this.stop()
   }
 
   get available() { return this.energy>=flareSpells[2].cost?flareSpells[2]:this.energy>=flareSpells[1].cost?flareSpells[1]:this.energy>=flareSpells[0].cost?flareSpells[0]:undefined }
@@ -98,5 +109,24 @@ export class FlareCombat {
     if(dealt>0) this.energy=Math.min(maxEnergy,this.energy+dealt*.375)
   }
 
-  stop() { this.cast=undefined; this.shot.visible=false }
+  plantEmber(position:Vector3, elapsed:number) {
+    this.ember.position.copy(position)
+    this.ember.position.y+=.06
+    this.ember.visible=true
+    this.emberAt=elapsed+emberHop.delay
+  }
+
+  releaseEmber(elapsed:number) {
+    if(this.emberAt===undefined || elapsed+1e-9<this.emberAt) return
+    this.emberAt=undefined
+    this.ember.visible=false
+    return this.ember.position
+  }
+
+  stop() {
+    this.cast=undefined
+    this.shot.visible=false
+    this.emberAt=undefined
+    this.ember.visible=false
+  }
 }
