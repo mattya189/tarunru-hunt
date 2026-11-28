@@ -9,8 +9,12 @@ const moves = {
   leap: {label:'跳び踏み', tell:1, rest:1.2, damage:27},
   tail: {label:'尾の打ち下ろし', tell:.7, rest:.8, damage:20},
   claw: {label:'両翼突き刺し', tell:1.1, rest:1.8, damage:31},
-  fissure: {label:'双翼地裂 · 中央か背後へ', tell:.85, rest:2.5, damage:39},
+  wind: {label:'翼風圧 · 円の外へ', tell:.9, rest:1, damage:0},
+  fissure: {label:'双翼地裂 · 波が来る瞬間に回避', tell:.85, rest:2.5, damage:39},
 } as const
+const windRadius=5.2
+const waveSpeed=32
+
 type Move = keyof typeof moves
 type Sector = {center:Vector3; yaw:number; radius:number; angle:number}
 
@@ -25,6 +29,9 @@ export class VariantBattle extends Battle {
   private landing = new Vector3()
   private heading = new Vector3()
   private lastLeap = -10
+  private windReadyAt = 3
+  private wavePending = false
+  private waveOrigins = [new Vector3(),new Vector3()]
 
   constructor(...args: ConstructorParameters<typeof Battle>) {
     super(...args)
@@ -36,6 +43,8 @@ export class VariantBattle extends Battle {
     super.reset()
     this.activeMove=this.previous=undefined
     this.lastLeap=-10
+    this.windReadyAt=3
+    this.wavePending=false
     this.markers?.forEach(marker=>marker.hide())
     this.setWeakness()
   }
@@ -75,6 +84,7 @@ export class VariantBattle extends Battle {
     // hunter can still deliberately bait it by holding the correct position.
     const bearing=Math.abs(angle)
     const choices: [Move,number][]=[]
+    if (distance<=3.9 && this.elapsed>=this.windReadyAt) choices.push(['wind',2.8-distance*.18+(this.rage?.3:0)])
     if (distance<=4.9 && bearing>.65 && bearing<2.52) choices.push(['sweep',2-Math.abs(bearing-1.55)])
     if (distance<=5.7 && bearing>Math.PI-.60) choices.push(['tail',1+bearing-(Math.PI-.60)])
     if (distance<=6.7 && bearing<(this.rage?.83:.67)) choices.push(['claw',this.rage?2.6:2])
@@ -101,19 +111,46 @@ export class VariantBattle extends Battle {
       case 'tail': this.sectors=[sector(y+Math.PI,7,.60)]; break
       case 'claw': this.sectors=[sector(y,8,this.rage?.83:.67)]; break
       case 'leap': this.lastLeap=this.elapsed; this.sectors=[sector(y,4.55,Math.PI,this.landing)]; break
+      case 'wind':
+        this.windReadyAt=this.elapsed+9
+        this.sectors=[sector(y,windRadius,Math.PI)]
+        break
       case 'fissure':
-        this.sectors=[-1,1].map(sign=>sector(y+sign*.86,11.5,.86,
-          this.start.clone().addScaledVector(forward(y+sign*Math.PI/2,this.heading),1.1)))
+        this.sectors=[sector(y,this.arena.data.radius,Math.PI,new Vector3())]
+        break
     }
     this.sectors.forEach((s,i)=>this.markers[i].show(s.center,s.yaw,s.radius,s.angle))
     this.setBoss('windup')
     this.callout=moves[id].label
   }
 
+  private releaseFissure() {
+    const parts=this.monster.parts.filter(part=>part.config.name.endsWith('翼爪'))
+    const maxRange=this.arena.data.radius*2+6
+    for (const [i,point] of this.waveOrigins.entries()) {
+      point.copy(parts[i].center)
+      this.fx.burst(point,0xffcc87,true)
+      point.y=this.arena.height(point.x,point.z)
+      this.fx.ring(point,0,maxRange,maxRange/waveSpeed,0xffca81,.95)
+    }
+    this.fx.sound('shockwave',this.m)
+    this.wavePending=true
+  }
+
+  private checkFissure() {
+    if (!this.wavePending) return
+    const left=flatDistance(this.waveOrigins[0],this.p)
+    const right=flatDistance(this.waveOrigins[1],this.p)
+    if (Math.min(left,right)>waveSpeed*this.bt) return
+    // Both waves share a single contact, so one well-timed dodge clears the attack.
+    this.wavePending=false
+    this.damagePlayer({damage:moves.fissure.damage,knockdown:false},left<=right?this.waveOrigins[0]:this.waveOrigins[1],1,1,'dodge-only')
+  }
+
   private perform(id:Move,dt:number) {
     const attack=moves[id]
-    const prep=({sweep:this.side<0?'sweepLeft':'sweepRight',claw:'clawPrep',leap:'leapPrep',tail:'tailPrep',fissure:'fissurePrep'} as const)[id]
-    const hit=({sweep:this.side<0?'sweepLeftHit':'sweepRightHit',claw:'clawHit',leap:'leapHit',tail:'tailHit',fissure:'fissureHit'} as const)[id]
+    const prep=({sweep:this.side<0?'sweepLeft':'sweepRight',claw:'clawPrep',leap:'leapPrep',tail:'tailPrep',wind:'windPrep',fissure:'fissurePrep'} as const)[id]
+    const hit=({sweep:this.side<0?'sweepLeftHit':'sweepRightHit',claw:'clawHit',leap:'leapHit',tail:'tailHit',wind:'windHit',fissure:'fissureHit'} as const)[id]
     if (this.bossState==='windup') {
       const t=clamp(this.bt/attack.tell,0,1)
       this.markers.forEach(marker=>marker.pulse(t))
@@ -127,8 +164,14 @@ export class VariantBattle extends Battle {
       else this.monster.animate(hit,dt,(t-.82)/.18)
       if(t===1) {
         this.markers.forEach(marker=>marker.hide())
-        this.fx.sound('earth-slam',this.m)
-        for (const s of this.sectors) {
+        if(id!=='wind') this.fx.sound('earth-slam',this.m)
+        if (id==='fissure') this.releaseFissure()
+        else if (id==='wind') {
+          this.fx.ring(this.m,.5,windRadius,.28,0xc7fbff)
+          this.fx.sound('air-pressure',this.m)
+          const distance=flatDistance(this.m,this.p)
+          if(distance<=windRadius) this.pushPlayerByWind(this.m,7+2*(1-distance/windRadius))
+        } else for (const s of this.sectors) {
           if (flatDistance(s.center,this.p)<=s.radius && Math.abs(wrap(yawTo(s.center,this.p)-s.yaw))<=s.angle) {
             this.damagePlayer({damage:attack.damage,knockdown:false},this.m,1)
             break
@@ -139,6 +182,7 @@ export class VariantBattle extends Battle {
         this.setBoss('recovery')
       }
     } else {
+      if (id==='fissure') this.checkFissure()
       const t=clamp(this.bt/attack.rest,0,1)
       this.monster.animate(hit,dt,Math.min(1,(1-t)*5))
       if(t===1) {
