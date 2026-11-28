@@ -142,7 +142,7 @@ body[data-screen="layout"] .monster-reticle { pointer-events:none; }
 #touch [data-control] {
   position:absolute; transform:translate(-50%,-50%); pointer-events:auto; touch-action:none;
 }
-#touch.keyboard-only [data-control]:not(#pause) { display:none; }
+#touch.keyboard-only [data-control]:not(#pause,[data-control="skill"]) { display:none; }
 #stick-zone {
   display:grid; place-items:center; width:calc(var(--control-size,102px) + 44px); aspect-ratio:1;
 }
@@ -165,6 +165,8 @@ body[data-screen="layout"] .monster-reticle { pointer-events:none; }
 #touch button small { font-size:.65em; opacity:.82; }
 #touch [data-action="attack"] { background:#544536ee; }
 #touch [data-action="dodge"] { border-color:#c5d9bfe0; background:#294c40f2; }
+#touch [data-action="skill"] { border-color:#e5b88e; background:#623c2ced; }
+#touch [data-action="skill"][aria-disabled="true"] { opacity:.7; }
 #touch [data-action="charge"] {
   background:#704c27f5; border-color:#f2ce8c;
   font-size:clamp(9px,calc(var(--control-size,58px) * .22),20px); white-space:nowrap;

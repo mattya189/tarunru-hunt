@@ -77,6 +77,12 @@ export interface WeaponData {
   swings: [WeaponStrike, WeaponStrike, WeaponStrike]
   charge: WeaponStrike
 }
+export const advancingSlash = {
+  distanceRatio:.5, moveDuration:.18, windup:.16, activeUntil:.26,
+  dodgeAfter:.38, duration:.46, cooldown:5, damageRatio:1.2,
+  reach:2.86, halfAngle:Math.PI/3, // Horizontal blade reach of the first normal swing.
+} as const
+
 export const greatsword: WeaponData = {
   name: '大剣', hp: 130, stamina: 100, walk: 6.35, roll: 9,
   swings: [

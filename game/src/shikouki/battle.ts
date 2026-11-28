@@ -49,16 +49,20 @@ export class ShikoukiBattle extends Battle {
     return !this.attacks.action && !this.attacks.isRecovering
   }
 
-  protected override strikeSecondary(damage:number,volume?:HitVolume,area=false) {
+  protected override strikeSecondary(damage:number,volume?:HitVolume,area=false,hitTargets?:Set<object>) {
     let hit:Crystal|undefined
     let nearest=1
     let dealt=0
     for(const c of this.attacks.crystals) {
+      if(hitTargets?.has(c)) continue
       if(!volume && flatDistance(c.center,this.p)>4.5) continue
       this.crystalHitPoint.copy(c.center).y+=.88
       const distance=volume?volume(this.crystalHitPoint,.76):this.strikeDistanceSquared(this.crystalHitPoint)/.76**2
       if(distance>nearest) continue
-      if(area) dealt+=this.strikeCrystal(c,damage)
+      if(area) {
+        hitTargets?.add(c)
+        dealt+=this.strikeCrystal(c,hitTargets ? Math.round(damage) : damage)
+      }
       else { nearest=distance; hit=c }
     }
     if(!hit || this.acceptBossDamage() && this.findStrike(this.monster,volume)) return dealt

@@ -1,5 +1,5 @@
 import { ACESFilmicToneMapping, PCFShadowMap, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
-import { Battle } from './battle'
+import { Battle, battleStep } from './battle'
 import { BattleAudio } from './battle-audio'
 import { HuntCamera } from './camera'
 import { ContactShadow } from './contact'
@@ -75,7 +75,7 @@ let rankingResult: Promise<number|null> | undefined
 let hunterShadow: ContactShadow, bossShadow: ContactShadow
 let dirty=true, frameCount=0
 let latest=performance.now(), titleTime=0, accumulator=0, uiTimer=0
-const step=1/60
+const step=battleStep
 const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,chooseDifficulty,chooseMonster,audio,chooseHunter)
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')

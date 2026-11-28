@@ -1,16 +1,20 @@
 import { Vector3 } from 'three'
-import type { Attack, AttackId, WeaponData, WeaponStrike } from './config'
+import { advancingSlash, type Attack, type AttackId, type WeaponData, type WeaponStrike } from './config'
 import type { Arena } from './world'
 import type { Controls } from './input'
 import type { Effects } from './effects'
 import type { HunterModel, HunterPose } from './hunter'
-import { FlareCombat, type HitVolume } from './flare/combat'
+import { emberHop, flareSpells, FlareCombat, type HitVolume } from './flare/combat'
 import type { FlareModel } from './flare/model'
 import { MonsterModel } from './monster-model'
 import { clamp, flatDistance, forward, pointSegmentSquared, smooth, wrap, yawTo } from './math'
 
-type FighterState = 'free' | 'cast' | 'swing' | 'charge' | 'dodge' | 'hit' | 'down' | 'rise'
-const dodgeTiming = { duration: .59, invincibleFrom: .016, invincibleFor: .275 }
+type FighterState = 'free' | 'skill' | 'cast' | 'swing' | 'charge' | 'dodge' | 'hit' | 'down' | 'rise'
+export const battleStep = 1/60
+const dodgeTiming = { duration: .59, invincibleFrom: .016, invincibleFor: .275, slowdown: .66 }
+const rollTravelTime = Array.from({length:Math.ceil(dodgeTiming.duration/battleStep)+1},(_,tick)=>
+  (1-dodgeTiming.slowdown*Math.min(1,tick*battleStep/dodgeTiming.duration))*battleStep
+).reduce((total,tick)=>total+tick,0)
 export type BossState = 'idle' | 'search' | 'approach' | 'turn' | 'windup' | 'attack' | 'recovery' | 'hit' | 'stagger' | 'fall' | 'rage' | 'defeat'
 
 export class Battle {
@@ -72,9 +76,15 @@ export class Battle {
   private recoveryDuration = .8
   private flareModel?: FlareModel
   private magic?: FlareCombat
+  private skillReadyAt = 0
+  private skillDirection = new Vector3()
+  private skillPosition = new Vector3()
+  private skillBlocked = false
+  private skillTargets = new Set<object>()
   private magicOrigin = new Vector3()
   private magicAim = new Vector3()
 
+  get skillCooldown() { return Math.max(0,this.skillReadyAt-this.elapsed) }
   get flare() { return this.flareModel ? this.magic : undefined }
   selectHunter(model?:FlareModel) {
     this.flareModel?.root.removeFromParent()
@@ -106,7 +116,10 @@ export class Battle {
     this.lastAttack=undefined; this.attack=undefined
     this.charged=this.struck=this.attackLocked=this.attackHit=this.guard=false
     this.callout=''; this.reverseMovement=0; this.cooldowns={swipe:0,rush:1,spin:2,leap:3,special:6}
+    this.skillReadyAt=0
+    this.skillTargets.clear()
     this.magic?.reset(); this.flareModel?.reset()
+    if(this.flareModel) this.flareModel.root.position.y=0
     this.fx.clear(); this.setPlayer('free'); this.setBoss('idle')
     this.hunter.root.rotation.y=this.playerYaw; this.hunter.pose('idle',0,0,0,0)
     this.monster.root.rotation.y=this.bossYaw; this.monster.setEnraged(false); this.monster.animate('idle',0)
@@ -119,6 +132,7 @@ export class Battle {
       if (this.outcome === 'victory') this.monster.animate('defeat',dt,clamp(this.outcomeTime/this.defeatDuration,0,1))
       if(this.flareModel) {
         this.magic!.stop()
+        this.flareModel.root.position.y=0
         this.flareModel.pose(this.outcome==='victory'?'Victory':'Death',dt)
       } else if(this.outcome==='failure') this.hunter.pose('down',clamp(this.outcomeTime/.46,0,1),dt,0,0)
       return
@@ -133,9 +147,14 @@ export class Battle {
     this.reverseMovement=Math.max(0,this.reverseMovement-dt)
     this.updatePlayer(dt,input,viewYaw)
     this.updateBoss(dt)
-    if(this.flareModel) {
-      if(!this.outcome) this.magic!.tick(dt,this.arena,(volume,damage)=>this.strikeWithMagic(volume,damage))
-    } else this.strikeMonster()
+    if(this.magic && this.flareModel) {
+      if(!this.outcome) {
+        this.explodeEmber(this.magic)
+        this.magic.tick(dt,this.arena,(volume,damage)=>this.strikeWithMagic(volume,damage))
+      }
+      if(this.outcome) this.magic.stop()
+    } else if(this.playerState==='skill') this.strikeWithAdvancingSlash()
+    else this.strikeMonster()
     if (this.lockedMonster && !this.reticleTargets.includes(this.lockedMonster)) {
       this.lockedMonster = this.defaultLockTarget()
     }
@@ -193,9 +212,14 @@ export class Battle {
     const wasGuarding=this.guard
     this.guard=false
     this.chargeValue=0
+    const requestedSkill=input.take('skill')
+    if(this.playerState==='skill' && this.pt+1e-9>=(magic ? emberHop.duration : advancingSlash.duration)) {
+      this.setPlayer('free')
+    }
     const canDodge = this.playerState==='free' || this.playerState==='charge' ||
       (this.playerState==='swing' && this.pt > this.strike.windup+this.strike.active+(this.charged?0:.06)) ||
-      (this.playerState==='cast' && magic?.canDodge(this.pt))
+      (this.playerState==='cast' && magic?.canDodge(this.pt)) ||
+      (this.playerState==='skill' && !magic && this.pt+1e-9>=advancingSlash.dodgeAfter)
     if (canDodge && input.take('dodge') && this.useStamina(20)) {
       input.clearCombatBuffer()
       this.startDodge(dir,magnitude)
@@ -203,32 +227,47 @@ export class Battle {
     if (this.playerState==='free') {
       this.guard=input.held('guard') && this.stamina >= 5
       if (this.guard && !wasGuarding) this.fx.sound('guard-raise',this.p)
-      if (magnitude>.045 || this.lock) {
-        const aim=this.lock ? angle : Math.atan2(dir.x,dir.z)
-        this.playerYaw += wrap(aim-this.playerYaw)*Math.min(1,dt*16)
-      }
-      const shot = input.has('attack') || !!magic && input.held('attack')
-      const charge = input.has('charge')
-      const aimed = this.lock || Math.abs(wrap(angle-this.playerYaw))<.60
-      if (!this.guard && magic?.begin(shot,charge,this.elapsed,aimed)) {
+      if (!this.guard && requestedSkill && !this.skillCooldown) {
         input.clearCombatBuffer()
-        if(aimed) this.playerYaw=angle
-        this.setPlayer('cast')
-        if(magic.cast?.spell) {
-          const { radius,release,color }=magic.cast.spell
-          this.fx.sound('magic-charge',this.p)
-          this.fx.ring(this.p,radius,radius,release,color,.47)
-        }
-      } else if (!this.guard && !magic && shot && this.useStamina(5)) {
-        input.clearCombatBuffer()
-        this.beginSwing(0,false)
-      } else if (!this.guard && !magic && charge && this.useStamina(12)) {
-        input.clearCombatBuffer()
-        this.setPlayer('charge')
-        this.fx.sound('sword-charge',this.p)
+        this.beginSkill(dir,magnitude)
       } else {
-        pose=this.guard?'guard':magnitude>.045?'run':'idle'
-        this.moveEntity(this.p,dir,(this.guard?1.7:this.weapon.walk)*dt,.44,this.m,this.bossGroundRadius)
+        if (magnitude>.045 || this.lock) {
+          const aim=this.lock ? angle : Math.atan2(dir.x,dir.z)
+          this.playerYaw += wrap(aim-this.playerYaw)*Math.min(1,dt*16)
+        }
+        const shot = input.has('attack') || !!magic && input.held('attack')
+        const charge = input.has('charge')
+        const aimed = this.lock || Math.abs(wrap(angle-this.playerYaw))<.60
+        if (!this.guard && magic?.begin(shot,charge,this.elapsed,aimed)) {
+          input.clearCombatBuffer()
+          if(aimed) this.playerYaw=angle
+          this.setPlayer('cast')
+          if(magic.cast?.spell) {
+            const { radius,release,color }=magic.cast.spell
+            this.fx.sound('magic-charge',this.p)
+            this.fx.ring(this.p,radius,radius,release,color,.47)
+          }
+        } else if (!this.guard && !magic && shot && this.useStamina(5)) {
+          input.clearCombatBuffer()
+          this.beginSwing(0,false)
+        } else if (!this.guard && !magic && charge && this.useStamina(12)) {
+          input.clearCombatBuffer()
+          this.setPlayer('charge')
+          this.fx.sound('sword-charge',this.p)
+        } else {
+          pose=this.guard?'guard':magnitude>.045?'run':'idle'
+          this.moveEntity(this.p,dir,(this.guard?1.7:this.weapon.walk)*dt,.44,this.m,this.bossGroundRadius)
+        }
+      }
+    }
+    if (this.playerState==='skill') {
+      this.moveSkill(dt,magic ? emberHop : advancingSlash)
+      if(!magic) {
+        pose='swing'
+        const { windup,activeUntil,duration }=advancingSlash
+        phase=this.pt<windup ? this.pt/windup : this.pt<activeUntil ? 1+(this.pt-windup)/(activeUntil-windup) :
+          2+clamp((this.pt-activeUntil)/(duration-activeUntil),0,1)
+        if(this.pt>=windup && this.pt-dt<windup) this.fx.sound('sword-light',this.p)
       }
     }
     if (this.playerState==='charge') {
@@ -261,7 +300,7 @@ export class Battle {
     }
     if (this.playerState==='dodge') {
       pose='dodge'; phase=clamp(this.pt/dodgeTiming.duration,0,1)
-      this.moveEntity(this.p,this.roll,this.weapon.roll*(1-.66*phase)*dt,.44,this.m,this.bossGroundRadius)
+      this.moveEntity(this.p,this.roll,this.weapon.roll*(1-dodgeTiming.slowdown*phase)*dt,.44,this.m,this.bossGroundRadius)
       if (phase>=1) { this.setPlayer('free'); pose='idle' }
     }
     if (this.playerState==='hit' || this.playerState==='down' || this.playerState==='rise') {
@@ -273,6 +312,12 @@ export class Battle {
     }
     this.hunter.root.rotation.y=this.playerYaw
     if(magic) {
+      const hopProgress=clamp(this.pt/emberHop.moveDuration,0,1)
+      this.flareModel!.root.position.y=this.playerState==='skill' ? .32*Math.sin(Math.PI*hopProgress) : 0
+      if(this.playerState==='skill') {
+        this.flareModel!.pose('Dodge',dt,.60*hopProgress)
+        return
+      }
       const cast = magic.cast
       if(this.playerState==='cast' && cast) {
         this.flareModel!.pose(cast.clip,dt,this.pt)
@@ -309,6 +354,67 @@ export class Battle {
     if (pose==='swing' && phase>.98 && phase<1.99) this.fx.blade(this.bladeA,this.bladeB,this.charged && this.power>1)
     else this.fx.endBlade()
   }
+  private beginSkill(direction:Vector3,magnitude:number) {
+    const magic=this.flare
+    this.skillReadyAt=this.elapsed+(magic ? emberHop.cooldown : advancingSlash.cooldown)
+    this.skillBlocked=false
+    this.skillTargets.clear()
+    this.setPlayer('skill')
+    if(magnitude>.13) this.skillDirection.copy(direction).normalize()
+    else forward(this.playerYaw,this.skillDirection).multiplyScalar(magic ? -1 : 1)
+
+    if(magic) {
+      magic.plantEmber(this.p,this.elapsed)
+      this.fx.sound('dodge',this.p)
+    } else {
+      this.playerYaw=Math.atan2(this.skillDirection.x,this.skillDirection.z)
+      this.combo=0
+      this.charged=false
+    }
+  }
+
+  private moveSkill(dt:number, skill:typeof emberHop | typeof advancingSlash) {
+    if(this.skillBlocked) return
+    const fraction=(clamp(this.pt,0,skill.moveDuration)-clamp(this.pt-dt,0,skill.moveDuration))/skill.moveDuration
+    if(fraction<=0) return
+    const distance=this.weapon.roll*rollTravelTime*skill.distanceRatio*fraction
+    this.skillPosition.copy(this.p).addScaledVector(this.skillDirection,distance)
+    this.moveEntity(this.p,this.skillDirection,distance,.44,this.m,this.bossGroundRadius)
+    if(flatDistance(this.p,this.skillPosition)>1e-4) this.skillBlocked=true
+  }
+
+  private explodeEmber(magic:FlareCombat) {
+    const position=magic.releaseEmber(this.elapsed)
+    if(!position) return
+    const { radius,color,damageRatio }=emberHop
+    this.fx.sound('flare-1',position)
+    this.fx.ring(position,.25,radius,.36,color)
+    this.fx.burst(position,color,false,radius*.55)
+    this.strikeWithMagic(center=>flatDistance(position,center)**2/radius**2,
+      Math.round(flareSpells[0].damage*damageRatio),'残火跳び')
+  }
+
+  private strikeWithAdvancingSlash() {
+    const { windup,activeUntil,reach,halfAngle,damageRatio }=advancingSlash
+    if(this.outcome || this.pt<windup || this.pt>activeUntil) return
+    const volume:HitVolume=(center,radius)=>{
+      const bearing=Math.abs(wrap(yawTo(this.p,center)-this.playerYaw))
+      const distance=flatDistance(this.p,center)
+      const edgeAngle=Math.max(0,bearing-halfAngle)
+      const along=clamp(distance*Math.cos(edgeAngle),0,reach)
+      const horizontal=Math.hypot(distance*Math.sin(edgeAngle),distance*Math.cos(edgeAngle)-along)
+      const low=Math.min(this.bladeA.y,this.bladeB.y), high=Math.max(this.bladeA.y,this.bladeB.y)
+      const vertical=center.y-clamp(center.y,low,high)
+      return (horizontal**2+vertical**2)/radius**2
+    }
+    const damage=this.weapon.swings[0].damage*damageRatio
+    const best=this.skillTargets.has(this.monster) ? undefined : this.findStrike(this.monster,volume)
+    const accepted=best && this.acceptBossDamage()
+    if(best) this.skillTargets.add(this.monster)
+    this.strikeSecondary(damage,volume,true,this.skillTargets)
+    if(best && accepted) this.applyMonsterHit(best,Math.round(damage*best.config.multiplier),'踏み込み斬り')
+  }
+
   protected magicLockPoint() {
     const monster=this.aimedMonster
     return this.magicAim.copy(monster.parts[0]?.center ?? monster.root.position)
@@ -386,7 +492,7 @@ export class Battle {
   protected preserveBossHealth(damage:number) { return damage }
   protected magicBossDamage(damage:number) { return damage }
   protected onBossHit(_magic:boolean,_damage:number) {}
-  protected strikeSecondary(_damage:number,_volume?:HitVolume,_area=false) { return 0 }
+  protected strikeSecondary(_damage:number,_volume?:HitVolume,_area=false,_hitTargets?: Set<object>) { return 0 }
   protected acceptBossDamage() { return true }
 
   protected findStrike(monster:MonsterModel,volume?:HitVolume) {

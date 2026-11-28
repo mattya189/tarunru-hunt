@@ -107,13 +107,14 @@ export class RevotenshiBattle extends Battle {
     return false
   }
 
-  protected override strikeSecondary(damage:number,volume?:HitVolume,area=false) {
+  protected override strikeSecondary(damage:number,volume?:HitVolume,area=false,hitTargets?:Set<object>) {
     let total=0
     for (const clone of this.clones) {
-      if (!clone.hp) continue
+      if (!clone.hp || hitTargets?.has(clone)) continue
       const part=this.findStrike(clone.model,volume)
       if (!part) continue
-      const dealt=volume?damage:Math.round(damage*part.config.multiplier)
+      hitTargets?.add(clone)
+      const dealt=volume && !hitTargets?damage:Math.round(damage*part.config.multiplier)
       total+=Math.min(clone.hp,dealt)
       clone.hp=Math.max(0,clone.hp-dealt)
       this.fx.hit(part.center,dealt,'分身体',0xe3acff,dealt>=88,false)
