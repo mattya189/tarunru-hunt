@@ -1,7 +1,7 @@
 import { tidebeast, type MonsterData } from './config'
 import { emperor } from './emperor/config'
 import { kogobon } from './kogobon/config'
-import { revotenshi } from './revotenshi/config'
+import { variant, revotenshi } from './revotenshi/config'
 import { sabottenanbon, sabottenanbonOvergrowth } from './sabottenanbon/config'
 import { shikouki } from './shikouki/config'
 import { raven } from './raven/config'
@@ -63,6 +63,11 @@ export const quests: readonly HuntQuest[] = [
       '片腕を引いたら腕薙ぎ、身をかがめたら突進。横にかわして、攻撃が終わってから近づく。',
       '跳躍プレスは着地点から離れ、潮鳴り震波は波の隙間を抜ける。大きな技のあとに溜め斬りを狙える。',
     ],
+  },
+  {
+    monster: variant, name: variant.name, difficulty: 2, icon: 'revotenshi',
+    attacks: '片翼なぎ払い、跳び踏み、尾の打ち下ろし、両翼突き刺し、双翼地裂',
+    advice: ['両翼を上げたら斜め横へ。刺さった翼爪を狙おう。','双翼地裂は中央と背後が安全。地割れの後は頭が弱点。'],
   },
   {
     monster: revotenshi, name: revotenshi.name, difficulty: 2, icon: 'revotenshi',
