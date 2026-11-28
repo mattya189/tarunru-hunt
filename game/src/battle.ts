@@ -11,7 +11,7 @@ import { clamp, flatDistance, forward, pointSegmentSquared, smooth, wrap, yawTo 
 
 type FighterState = 'free' | 'skill' | 'cast' | 'swing' | 'charge' | 'dodge' | 'hit' | 'down' | 'rise'
 export const battleStep = 1/60
-const dodgeTiming = { duration: .59, invincibleFrom: .016, invincibleFor: .275, slowdown: .66 }
+export const dodgeTiming = { duration: .59, invincibleFrom: .016, invincibleFor: .275, slowdown: .66 }
 const rollTravelTime = Array.from({length:Math.ceil(dodgeTiming.duration/battleStep)+1},(_,tick)=>
   (1-dodgeTiming.slowdown*Math.min(1,tick*battleStep/dodgeTiming.duration))*battleStep
 ).reduce((total,tick)=>total+tick,0)
@@ -175,6 +175,26 @@ export class Battle {
   protected defaultLockTarget() { return this.monster }
   private get aimedMonster() { return this.lockedMonster ?? this.defaultLockTarget() }
   get rageLabel() { return '怒り' }
+  get statusNotice() { return '' }
+  protected get playerStateTime() { return this.pt }
+  protected get dodgeDirection() { return this.roll }
+  protected get playerCollisionImmune() { return this.dodgeInvulnerable }
+  protected get staminaRecoveryDelay() { return this.staminaDelay }
+  protected get playerEvadeDelay() {
+    switch (this.playerState) {
+      case 'swing': return Math.max(0,this.strike.windup+this.strike.active+(this.charged?0:.06)-this.pt)
+      case 'cast': {
+        const cast=this.flare?.cast
+        return cast?Math.max(0,Math.min(cast.duration,cast.release+cast.dodgeDelay)-this.pt):0
+      }
+      case 'skill': return Math.max(0,(this.flare?emberHop.duration:advancingSlash.dodgeAfter)-this.pt)
+      case 'dodge': return Math.max(0,dodgeTiming.duration-this.pt)
+      case 'hit': return Math.max(0,.42-this.pt)
+      case 'down': return Math.max(0,1.28-this.pt)
+      case 'rise': return Math.max(0,.49-this.pt)
+      default: return 0
+    }
+  }
   get fieldDarkness() { return 0 }
   get field() { return this.arena }
   get defeatDuration() { return 1.65 }
@@ -721,14 +741,16 @@ export class Battle {
   protected damagePlayer(
     a: Pick<Attack,'damage' | 'knockdown'>, source: Vector3,
     multiplier = this.attackDamageMultiplier, damageScale = 1,
-    guardEffect?: { damageScale: number; push: number } | 'dodge-only' | 'unguardable',
+    guardEffect?: { damageScale: number; push: number } | 'dodge-only' | 'unguardable' | 'status-expiry',
+    sourceLabel = '',
   ) {
     const dodgeOnly=guardEffect==='dodge-only'
+    const statusExpiry=guardEffect==='status-expiry'
     const guardResponse=typeof guardEffect==='object'?guardEffect:undefined
-    if (this.dodgeInvulnerable || !dodgeOnly && (this.immune>0 || this.playerState==='rise' || this.playerState==='down')) return false
+    if (!statusExpiry && (this.dodgeInvulnerable || !dodgeOnly && (this.immune>0 || this.playerState==='rise' || this.playerState==='down'))) return false
     const toward=yawTo(this.p,source)
-    const guarded=guardEffect!=='dodge-only' && guardEffect!=='unguardable' && this.guard && Math.abs(wrap(toward-this.playerYaw))<=1.30 && this.useStamina(a.knockdown?23:15)
-    const damage=guarded && guardResponse
+    const guarded=!statusExpiry && guardEffect!=='dodge-only' && guardEffect!=='unguardable' && this.guard && Math.abs(wrap(toward-this.playerYaw))<=1.30 && this.useStamina(a.knockdown?23:15)
+    const damage=statusExpiry?a.damage:guarded && guardResponse
       ? Math.round(a.damage*multiplier*guardResponse.damageScale)*damageScale
       : Math.max(1,Math.round(a.damage*multiplier*(guarded?.24:1)))*damageScale
     this.hp=Math.max(0,this.hp-damage)
@@ -743,7 +765,7 @@ export class Battle {
       this.moveEntity(this.p,this.shove,guardResponse.push,.44,this.m,this.bossGroundRadius)
     }
     this.hitPoint.copy(this.p); this.hitPoint.y+=1.55
-    this.fx.hit(this.hitPoint,damage,guarded?'防御':'',guarded?0xffdb9b:0xff7f69,a.knockdown&&!guarded,true,guarded?'guard-hit':'hit-player')
+    this.fx.hit(this.hitPoint,damage,guarded?(sourceLabel?'防御 · '+sourceLabel:'防御'):sourceLabel,guarded?0xffdb9b:0xff7f69,a.knockdown&&!guarded,true,guarded?'guard-hit':'hit-player')
     if(this.hp<=0) { this.outcome='failure'; this.callout='力尽きた' }
     return true
   }

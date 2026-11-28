@@ -7,6 +7,7 @@ import { shikouki } from './shikouki/config'
 import { raven } from './raven/config'
 import { kouencho } from './kouencho/config'
 import { wanda } from './wanda/config'
+import { kouper } from './kouper/config'
 
 export const difficultyInfo = {
   1: { name: '★1', description: '初級' },
@@ -101,6 +102,17 @@ export const quests: readonly HuntQuest[] = [
       '結晶は大剣で破壊できる。光線が結晶に当たると分岐し、斬撃が当たると結晶が爆発する。',
       'HP60%以下で怒り、25%以下で暴走する。紫煌天獄では着地点の予告から離れ、着地後のダウンを狙う。',
       '紫煌天獄の着地衝撃波は直撃で144ダメージ。回避が間に合わないときは着地点を向いてガードする。',
+    ],
+  },
+  {
+    monster: kouper, name: kouper.name, difficulty: 3, icon: 'kouper-toiper',
+    species: '紙蛇種 · 爆破', englishName: 'Kouper Toiper',
+    attacks: '踏み込み頭突き、左右連続叩きつけ、蛇行滑走、横薙ぎ頭部打撃、飛び込み粉砕、胴体大旋回、直線連鎖爆破、爆紙地獄',
+    advice: [
+      '呪紙は緑から黄、赤へ変わって爆発する。踏んで付着したら6秒以内に回避を2回。',
+      '頭突きと滑走は横に抜け、横薙ぎは背後へ。飛び込み粉砕の着地後は頭部への反撃を狙おう。',
+      'HPが半分になると呪紙が着弾直後に爆発する。予告円を見て、直撃と周囲の爆発をまとめてかわす。',
+      '爆紙地獄では3本の爆発列の間を抜け、赤く点滅する呪紙と最後の大爆破の円から離れる。大爆破後は3.5秒の隙ができる。',
     ],
   },
   {

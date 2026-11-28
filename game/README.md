@@ -34,7 +34,7 @@ npm run preview
 | ID | 狩場 | 現在の割り当て |
 |---|---|---|
 | `FIELD_001` | 夕凪の石浜 | フィールド指定のないモンスター |
-| `FIELD_002` | 古代神殿跡地 | 未割り当て |
+| `FIELD_002` | 古代神殿跡地 | コウパートイパー |
 | `FIELD_003` | 神の山頂 | ワンダ・バタフ・キング |
 
 GLBの地面を基準に `landscape.floor`、縮尺、円形の戦闘範囲、初期位置、必要な追加当たり判定を設定します。背景、フォグ、光源、環境音、カメラも同じ定義で調整できます。古代神殿跡地は石柱の内側を戦闘範囲にし、カメラとプレイヤーや敵の間に入った建築物を一時的に透過します。[素材クレジット](public/licenses/ancient-temple.txt)
@@ -223,3 +223,21 @@ HP40%以下で怒り、移動速度1.15倍、攻撃動作と攻撃力1.10倍。�
 - 攻撃予告とエフェクトは `src/wanda/visuals.ts`。画質により装飾粒子の数を変える。攻撃判定と予告範囲は共通。
 - `public/models/wanda/monarch.glb` はMeshoptで圧縮した19クリップ入りのゲーム用モデル。元GLBへの可動軸・クリップの追加は `tools/animate_wanda.py`。
 - ランキングは既存の大剣部門・魔法使い部門とモンスター別挑戦者数を共用する。スキーマに `20261127160000_wanda_butterfly_king_ranking.sql` を適用する。
+
+
+## コウパートイパー
+
+★3の紙蛇種。IDは `kouper-toiper`、HPは3,120。頭部のダメージ倍率は1.25、胴体は1.0。HP50%で怒り、50%・20%の閾値を越えると各1回「爆紙地獄」を使う。閾値を一撃で越えた場合も、2回の必殺と疲労が終わるまではHP1で踏みとどまる。
+
+- `src/kouper/config.ts` に攻撃、呪紙、AIの調整値をまとめた。HP3,120は、大剣の3段合計178／2.44秒とフレアの至近距離の魔弾40／0.90秒を上限の目安に、移動・回避・必殺中の攻撃機会を加味して設定した。
+- `src/kouper/plan.ts` の攻撃範囲を予告描画・当たり判定・AIの回避検証で共用する。開発用表示はURLに `?kouper-debug` を付けて出撃すると確認できる。
+- `public/models/kouper/kouper.glb` は添付モデルに12関節と25クリップを追加したMeshopt圧縮版。顔と頭部を同じ関節で動かす。素材の再生成には `tools/animate_kouper.py` と `tools/synthesize_kouper.py` を使う。
+- ランキングの大剣・フレア部門を有効にするには、公開先に `supabase/migrations/20261128192000_kouper_toiper.sql` を適用する。
+
+戦闘回帰テストはVite開発サーバーを起動し、PlaywrightのChromiumを用意して実行する。
+
+```sh
+npm install --no-save --package-lock=false playwright
+npx playwright install chromium
+node tools/test-kouper.mjs
+```

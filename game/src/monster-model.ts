@@ -51,7 +51,7 @@ export class MonsterModel {
   private readonly asset: Group
   private readonly actions = new Map<Motion, AnimationAction>()
   private current?: AnimationAction
-  private readonly materials = new Map<MeshStandardMaterial, { color: Color; intensity: number }>()
+  private readonly materials = new Map<MeshStandardMaterial, { color: Color; intensity: number; base:Color }>()
   private motion?: Motion
   private readonly emitters = new Map<string, Object3D>()
   private mantling = false
@@ -85,7 +85,7 @@ export class MonsterModel {
         object.receiveShadow = false
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
           if (material instanceof MeshStandardMaterial && !this.materials.has(material)) {
-            this.materials.set(material,{ color: material.emissive.clone(), intensity: material.emissiveIntensity })
+            this.materials.set(material,{ color: material.emissive.clone(), intensity: material.emissiveIntensity, base:material.color.clone() })
           }
         }
         // Animated skin bounds may exceed the rest mesh.
@@ -205,6 +205,19 @@ export class MonsterModel {
   duration(motion: Motion) { return this.actions.get(motion)?.getClip().duration ?? 1 }
 
   setEnraged(value: boolean) {
+    if(this.data.id==='kouper-toiper') {
+      for(const [material,original] of this.materials) {
+        if(!/tissue|paper|cellulose|kraft/i.test(material.name)) continue
+        material.color.copy(original.base)
+        material.emissive.copy(original.color)
+        material.emissiveIntensity=original.intensity
+        if(value) {
+          material.color.multiply(new Color(0xff594d))
+          material.emissive.setHex(0x921905)
+          material.emissiveIntensity=.29
+        }
+      }
+    }
     if (this.data.id === 'revotenshi-variant') {
       for (const [material] of this.materials) if (material.name === 'Copper wing lining') material.emissive.set(value ? 0xde580c : 0x281005)
     }
