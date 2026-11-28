@@ -4,13 +4,13 @@ import type { Arena } from '../world'
 
 export const maxEnergy = 300
 export const flareSpells = [
-  { name:'フレアⅠ', sound:'flare-1', clip:'Flare1', cost:75, damage:140, radius:2.5, release:.20, duration:.50, color:0xff792c },
-  { name:'フレアⅡ', sound:'flare-2', clip:'Flare2', cost:180, damage:400, radius:4, release:.60, duration:1.20, color:0xef183b },
-  { name:'フレアⅢ', sound:'flare-3', clip:'Flare3', cost:300, damage:880, radius:6, release:1.20, duration:2.20, color:0xffbc42 },
+  { name:'フレアⅠ', sound:'flare-1', clip:'Flare1', cost:75, damage:140, radius:2.5, release:.20, duration:.50, dodgeDelay:.18, color:0xff792c },
+  { name:'フレアⅡ', sound:'flare-2', clip:'Flare2', cost:180, damage:400, radius:4, release:.60, duration:1.20, dodgeDelay:.30, color:0xef183b },
+  { name:'フレアⅢ', sound:'flare-3', clip:'Flare3', cost:300, damage:880, radius:6, release:1.20, duration:2.20, dodgeDelay:.45, color:0xffbc42 },
 ] as const
 export type Spell = (typeof flareSpells)[number]
 type Cast = {
-  clip: 'EnergyShot' | Spell['clip']; release:number; duration:number; spell?:Spell; aimed?:boolean
+  clip: 'EnergyShot' | Spell['clip']; release:number; duration:number; dodgeDelay:number; spell?:Spell; aimed?:boolean
 }
 export type HitVolume = (center:Vector3,radius:number)=>number
 
@@ -25,7 +25,7 @@ export class FlareCombat {
   cast?: Cast
   private shot!: Mesh
   private shotReady = 0
-  private released = false
+  private releasedAt?: number
   private start = new Vector3()
   private previous = new Vector3()
   private direction = new Vector3()
@@ -53,16 +53,20 @@ export class FlareCombat {
       this.cast={...spell,spell}
     } else if(attack && elapsed>=this.shotReady && !this.shot.visible) {
       this.shotReady=elapsed+.90
-      this.cast={clip:'EnergyShot',release:.25,duration:.50,aimed}
+      this.cast={clip:'EnergyShot',release:.25,duration:.50,dodgeDelay:.10,aimed}
     } else return false
-    this.released=false
+    this.releasedAt=undefined
     return true
   }
 
   release(time:number) {
-    if(!this.cast || this.released || time<this.cast.release) return
-    this.released=true
+    if(!this.cast || this.releasedAt!==undefined || time<this.cast.release) return
+    this.releasedAt=time
     return this.cast
+  }
+
+  canDodge(time:number) {
+    return !!this.cast && this.releasedAt!==undefined && time-this.releasedAt+1e-9>=this.cast.dodgeDelay
   }
 
   launch(hand:Vector3,yaw:number,aim?:Vector3) {

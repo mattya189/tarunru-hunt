@@ -23,10 +23,6 @@ body:not([data-screen="battle"]) { touch-action: pan-y; }
   height: 100%; height: 100dvh; overflow: hidden; isolation: isolate; container-type: inline-size;
 }
 #view, #shade, #hud, #menu { position: absolute; inset: 0; }
-#orientation-notice { align-self:center; text-align:center; padding:24px; }
-#orientation-notice h2 { font-size:clamp(24px,5vmin,38px); }
-#orientation-notice p { margin:0; }
-body[data-landscape="true"] #game { display:none; }
 #view { display: block; width: 100%; height: 100%; touch-action: none; }
 #shade { pointer-events: none; background: radial-gradient(ellipse at 55% 41%, transparent 42%, #15242157 100%); }
 body:not(:is([data-screen="battle"],[data-screen="layout"])) #shade {
@@ -39,6 +35,11 @@ button { font: inherit; cursor: pointer; color: inherit; -webkit-tap-highlight-c
 button:focus-visible { outline: 2px solid #ffe3a6; outline-offset: 3px; }
 #menu { display:flex; align-items:flex-end; padding:var(--top) var(--right) max(56px,calc(var(--bottom) + 37px)) max(22px,var(--left)); }
 .menu-card { width: min(480px, 100%); max-height: calc(100dvh - var(--top) - max(56px,calc(var(--bottom) + 37px))); overflow-y: auto; overscroll-behavior: contain; padding: 4px; touch-action: pan-y; scrollbar-width: thin; }
+@media (orientation: landscape) {
+  .coarse #game { width:100%; }
+  .coarse #menu { padding-bottom:max(32px, calc(var(--bottom) + 17px)); }
+  .coarse .menu-card { max-height:calc(100dvh - var(--top) - max(32px, calc(var(--bottom) + 17px))); }
+}
 .eyebrow { display: flex; align-items: center; gap: 13px; color: var(--gold); font-size: 12px; font-weight: 700; letter-spacing: .22em; }
 .eyebrow::before { content:""; width: 31px; height: 1px; background: currentColor; }
 h1,h2 { margin: 17px 0 16px; font-family: "Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif; font-weight: 800; color: var(--paper); text-shadow: 0 4px 24px #141b189c; }

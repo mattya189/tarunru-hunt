@@ -38,8 +38,7 @@ import { wanda } from './wanda/config'
 import './style.css'
 
 const game=document.querySelector<HTMLElement>('#game')!
-const orientationNotice=document.querySelector<HTMLElement>('#orientation-notice')!
-const landscapePhone=matchMedia('(orientation: landscape) and (pointer: coarse)')
+const landscape=matchMedia('(orientation: landscape)')
 const canvas=document.querySelector<HTMLCanvasElement>('#view')!
 const input=new Controls(canvas)
 const audio=new BattleAudio()
@@ -52,7 +51,7 @@ try {
 
 let screen: Screen | null='loading'
 let helpFrom: Screen='title'
-let orientationBlocked=false
+let wideTouch=false
 let rankingFrom: 'title' | 'quest' | 'victory'='title'
 let difficulty: Difficulty=1
 let selectedMonster=tidebeast
@@ -81,17 +80,16 @@ const ui=new Interface(tidebeast,greatsword,input.coarse,command,applyQuality,ch
 ui.show(screen,quality)
 const testMode=import.meta.env.DEV && new URLSearchParams(location.search).has('test')
 const reticles=new Reticles(model => {
-  if (screen!==null || orientationBlocked) return
+  if (screen!==null) return
   battle.selectLockTarget(model)
 })
 const controlsLayout=new ControlLayout(() => switchTo('title'))
 updateViewport()
-landscapePhone.addEventListener('change',updateViewport)
+landscape.addEventListener('change',updateViewport)
 window.addEventListener('resize',updateViewport)
 window.visualViewport?.addEventListener('resize',updateViewport)
 
 function switchTo(next: Screen | null) {
-  if (next===null && orientationBlocked) next='paused'
   if(next===null) audio.resume()
   else { audio.pauseMusic(); audio.stopEffects() }
   screen=next
@@ -250,7 +248,6 @@ async function startHunt() {
   } catch(error) { fail(error) }
 }
 function command(action: Command) {
-  if(orientationBlocked) return
   if(action==='refresh') { location.reload(); return }
   if(!battle) return
   switch(action) {
@@ -289,21 +286,16 @@ function command(action: Command) {
   }
 }
 function updateViewport() {
-  const blocked=landscapePhone.matches
-  if (blocked!==orientationBlocked) {
-    orientationBlocked=blocked
-    document.body.dataset.landscape=String(blocked)
-    game.inert=blocked
-    orientationNotice.hidden=!blocked
+  const next=input.coarse && landscape.matches
+  if (next!==wideTouch) {
+    wideTouch=next
     input.clear()
-    controlsLayout.cancelDrag()
-    if (blocked && screen===null) switchTo('paused')
+    controlsLayout.setLandscape(wideTouch)
   }
   resize()
 }
 
 function resize() {
-  if (orientationBlocked) return
   controlsLayout.refresh()
   if(!renderer) return
   const w=game.clientWidth,h=game.clientHeight
@@ -343,7 +335,6 @@ function frame(now: number) {
   if(screen==='error') return
   requestAnimationFrame(frame)
   const dt=Math.min(.07,Math.max(0,(now-latest)/1000)); latest=now
-  if(orientationBlocked) return
   if(input.take('pause') && battle && !battle.outcome) {
     if(screen===null) switchTo('paused')
     else if(screen==='paused') switchTo(null)
@@ -424,7 +415,7 @@ async function init() {
     applyQuality(quality)
     document.addEventListener('visibilitychange',()=>{
       if(document.hidden) { audio.pauseMusic(); audio.stopEffects() }
-      else if(!orientationBlocked && screen===null && !battle.outcome) audio.resume()
+      else if(screen===null && !battle.outcome) audio.resume()
     })
     canvas.addEventListener('webglcontextlost',event=>{
       event.preventDefault()
@@ -433,7 +424,7 @@ async function init() {
     document.querySelector('#pause')!.addEventListener('click',()=>{ if(screen===null&&!battle.outcome) switchTo('paused') })
     if(testMode) Object.assign(window,{huntTest:{battle,camera,renderer,input}})
     const recoverAudio=()=>{
-      if (!orientationBlocked && screen===null && !battle.outcome) audio.resume()
+      if (screen===null && !battle.outcome) audio.resume()
     }
     window.addEventListener('pointerup',recoverAudio)
     window.addEventListener('keydown',recoverAudio)

@@ -8,16 +8,17 @@ type Control = keyof typeof labels
 const controls = Object.keys(labels) as Control[]
 type Placement = { x: number; y: number; scale: number }
 type Layout = Partial<Record<Control, Placement>>
+type Orientation = 'portrait' | 'landscape'
 type Dimensions = { width: number; height: number; gameWidth: number; left: number }
-const storageKey = 'shiosai-control-layout'
+const storageKeys = { portrait: 'shiosai-control-layout', landscape: 'shiosai-control-layout-landscape' }
 const minScale = .65
 const maxScale = 1.60
 const keyboardSteps: Record<string, readonly [number, number]> = { ArrowLeft: [-1,0], ArrowRight: [1,0], ArrowUp: [0,-1], ArrowDown: [0,1] }
 
-function readLayout(): Layout {
+function readLayout(orientation: Orientation): Layout {
   const layout: Layout = {}
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey) ?? '{}')
+    const saved = JSON.parse(localStorage.getItem(storageKeys[orientation]) ?? '{}')
     for (const id of controls) {
       const value = saved?.[id]
       if (!value || ![value.x, value.y, value.scale].every(Number.isFinite)) continue
@@ -37,8 +38,9 @@ export class ControlLayout {
   private readonly output = this.editor.querySelector<HTMLOutputElement>('output')!
   private readonly elements = new Map(controls.map(id => [id, this.surface.querySelector<HTMLElement>(`[data-control="${id}"]`)!]))
   private readonly game = document.querySelector<HTMLElement>('#game')!
-  private saved = readLayout()
-  private draft?: Layout
+  private orientation: Orientation = 'portrait'
+  private saved = { portrait: readLayout('portrait'), landscape: readLayout('landscape') }
+  private draft?: Record<Orientation, Layout>
   private selected: Control = 'stick'
   private drag?: { pointer: number; offsetX: number; offsetY: number }
   private readonly centers = new Map<Control, { x: number; y: number }>()
@@ -56,14 +58,17 @@ export class ControlLayout {
       this.keepPanelClear()
     })
     this.bindButton('layout-default', () => {
-      this.draft = {}
+      this.draft![this.orientation] = {}
       this.refresh()
       this.keepPanelClear()
     })
     this.bindButton('layout-cancel', back)
     this.bindButton('layout-save', () => {
       this.saved = this.draft!
-      try { localStorage.setItem(storageKey, JSON.stringify(this.saved)) } catch { /* Use the layout for this session. */ }
+      try {
+        localStorage.setItem(storageKeys.portrait, JSON.stringify(this.saved.portrait))
+        localStorage.setItem(storageKeys.landscape, JSON.stringify(this.saved.landscape))
+      } catch { /* Use the layout for this session. */ }
       back()
     })
     this.surface.addEventListener('pointerdown', event => this.beginDrag(event))
@@ -90,7 +95,7 @@ export class ControlLayout {
   }
 
   open() {
-    this.draft = { ...this.saved }
+    this.draft = { portrait: { ...this.saved.portrait }, landscape: { ...this.saved.landscape } }
     this.editor.hidden = false
     this.placePanel('top')
     this.collapsePanel(false)
@@ -107,7 +112,12 @@ export class ControlLayout {
     this.editor.hidden = true
   }
 
-  cancelDrag() {
+  setLandscape(landscape: boolean) {
+    this.cancelDrag()
+    this.orientation=landscape?'landscape':'portrait'
+  }
+
+  private cancelDrag() {
     const pointer = this.drag?.pointer
     this.drag = undefined
     this.editor.classList.remove('dragging')
@@ -169,12 +179,12 @@ export class ControlLayout {
   }
 
   private placement(id: Control, {width: w, height: h, gameWidth, left}: Dimensions): Placement {
-    const chosen = (this.draft ?? this.saved)[id]
+    const chosen = (this.draft ?? this.saved)[this.orientation][id]
     if (chosen) return chosen
     const base = this.baseSize('attack', gameWidth)
     const radius = this.baseSize(id, gameWidth) * .5
     const defaults: Record<Control, [number, number]> = {
-      stick: [gameWidth * .28 - left, h - radius - 31],
+      stick: [this.orientation==='landscape'?radius+24:gameWidth * .28 - left, h - radius - 31],
       attack: [w - radius, h - 1.22 * base - radius],
       guard: [w - 1.18 * base - radius, h - 1.10 * base - radius],
       dodge: [w - 1.38 * base - radius, h - radius],
@@ -246,7 +256,7 @@ export class ControlLayout {
 
   private change(placement: Placement) {
     if (!this.draft) return
-    this.draft[this.selected] = placement
+    this.draft[this.orientation][this.selected] = placement
     this.refresh()
   }
 }

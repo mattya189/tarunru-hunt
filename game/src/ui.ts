@@ -191,7 +191,7 @@ export class Interface {
       <tr><th>ガード</th><td>ガードを長押し</td><td>L を長押し</td></tr>
       <tr><th>ロックオン</th><td>敵のアイコンをタップ、照準で解除</td><td>アイコンをクリック、Qで切替</td></tr>
       <tr><th>一時停止</th><td>一時停止ボタン</td><td>Esc / P</td></tr></tbody></table></div>
-      <p>斬撃中にもう一度入力すると、最大3段まで繋がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。スマホでは縦向きで遊べる。タイトル画面の「操作配置」でタッチ操作を調整できる。</p>
+      <p>斬撃の終わり際にもう一度入力すると、最大3段まで繋がる。移動入力なしで回避すると後ろへ下がる。相手を正面に捉えるとガードが効く。フレアは魔弾の命中でエネルギーを貯め、使える最上位の技を発動する。スマホは縦・横どちらでも遊べる。タイトル画面の「操作配置」で向きごとにタッチ操作を調整できる。</p>
       <div class="menu-actions">${button('back','戻る',true)}</div>
       <p class="ranking-note"><a href="${import.meta.env.BASE_URL}licenses/ancient-temple.txt" target="_blank" rel="noopener">素材クレジット</a></p>`
     if (screen==='victory' || screen==='failure') this.panel.innerHTML=`
