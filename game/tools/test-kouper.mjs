@@ -175,7 +175,12 @@ try {
     }
     return {model,plans,runs}
   })
-  assert.equal(result.runs.find(x=>x.style==='expert')?.result,'victory','greatsword full clear')
+  const expert=result.runs.find(x=>x.style==='expert')
+  const counter=result.runs.find(x=>x.style==='counter')
+  assert.equal(expert?.result,'victory','greatsword full clear')
+  assert(expert.time>=60&&expert.time<=80,'expert clear time')
+  assert.equal(counter?.result,'victory','counter-focused greatsword full clear')
+  assert(counter.time>=105&&counter.time<=135,'counter-focused clear time')
   assert.equal(result.runs.find(x=>x.style==='flare')?.result,'victory','Flare full clear')
   console.log(JSON.stringify(result,null,2))
 } finally {await browser.close()}

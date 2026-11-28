@@ -104,9 +104,9 @@ export class DangerMap {
     return points
   }
 
-  escape(player:PlayerTrack, now:number, addition:readonly Zone[], body:Vector3, bodyRadius:number, plan?:Plan) {
+  escape(player:PlayerTrack, now:number, addition:readonly Zone[], body:Vector3, bodyRadius:number, plan?:Plan, fullWindow=false) {
     const heading=Math.atan2(player.point.x-body.x,player.point.z-body.z)
-    const until=Math.min(tactics.horizon,Math.max(1.35,...addition.map(zone=>zone.kind==='direct'||zone.at-now<2.05?zone.until-now+.34:0)))
+    const until=Math.min(tactics.horizon,Math.max(1.35,...addition.map(zone=>fullWindow||zone.kind==='direct'||zone.at-now<2.05?zone.until-now+.34:0)))
     const rollEarliest=Math.max(tactics.reaction,player.evadeDelay,player.rollWait)
     const instant=addition.find(zone=>zone.at>=now)?.at??now+1
     const rollOptions=[Infinity,rollEarliest,Math.max(rollEarliest,instant-now-.21)]

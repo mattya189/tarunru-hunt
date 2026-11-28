@@ -429,6 +429,7 @@ export class KouperBattle extends Battle {
   private startUltimate() {
     this.chainCount=0; this.pattern=undefined
     this.ultimateRound=++this.firedUltimates
+    this.patternStart=this.elapsed
     this.enter('Ultimate',ultimate.name+' · 神殿中央へ移動')
     this.events=0; this.paperEvents=0
   }
@@ -452,9 +453,16 @@ export class KouperBattle extends Battle {
           this.m.copy(path); this.monster.animate('run',dt*1.3); return
         }
       }
+      if(this.elapsed<this.patternStart) return
       const existingClear=this.stamps.reduce((clear,entry)=>Math.max(clear,entry.at),this.elapsed)
       this.patternStart=Math.max(this.elapsed,existingClear-ultimate.scatter+.06)
       this.pattern=this.pickPattern(center)
+      if(!this.pattern) {
+        this.patternStart=this.elapsed+tactics.rethink
+        this.monster.animate('paperScatter',dt,.45)
+        this.callout=ultimate.name+' · 呪紙を集めている'
+        return
+      }
       const serial=this.attackSerial+=100
       for(const zone of this.pattern.lanes) zone.strike+=serial
       this.pattern.final.strike+=serial
@@ -506,12 +514,9 @@ export class KouperBattle extends Battle {
     this.danger.update(this.elapsed,this.stamps.map(stamp=>plannedPaper(stamp)))
     for(const heading of headings) {
       const pattern=ultimatePattern(this.arena,center,heading,this.patternStart,this.ultimateRound)
-      const escape=this.danger.escape(this.readPlayer(),this.elapsed,pattern.lanes,center,this.monster.data.radius)
+      const escape=this.danger.escape(this.readPlayer(),this.elapsed,pattern.lanes,center,this.monster.data.radius,undefined,true)
       if(escape) { this.debugPath=escape; return pattern }
     }
-    // Fixed lanes converge at the center. The player has a new warning window before any lane fires.
-    this.patternStart+=.75
-    return ultimatePattern(this.arena,center,headings[0],this.patternStart,this.ultimateRound)
   }
 
   private place(stamp:CursePaper) {
